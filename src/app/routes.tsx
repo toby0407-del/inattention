@@ -1,54 +1,44 @@
-import { createBrowserRouter } from "react-router";
-import { RoleSelection } from "./screens/RoleSelection";
-import { AuthModal } from "./screens/AuthModal";
-import { Dashboard } from "./screens/Dashboard";
-import { Analytics } from "./screens/Analytics";
-import { Settings } from "./screens/Settings";
-import { ChildHome } from "./screens/ChildHome";
-import { Calibration } from "./screens/Calibration";
-import { Gameplay } from "./screens/Gameplay";
-import { Reward } from "./screens/Reward";
-import { SystemArchitecture } from "./screens/SystemArchitecture";
+import { createBrowserRouter, Outlet } from 'react-router';
+import { AppProvider } from './context/AppContext';
+import SplashScreen from './pages/SplashScreen';
+import ParentLayout from './layouts/ParentLayout';
+import Dashboard from './pages/Dashboard';
+import Analytics from './pages/Analytics';
+import Settings from './pages/Settings';
+import QuestMap from './pages/QuestMap';
+import Calibration from './pages/Calibration';
+import Gameplay from './pages/Gameplay';
+import Reward from './pages/Reward';
+import Developer from './pages/Developer';
+
+function Root() {
+  return (
+    <AppProvider>
+      <Outlet />
+    </AppProvider>
+  );
+}
 
 export const router = createBrowserRouter([
   {
-    path: "/",
-    Component: RoleSelection,
-  },
-  {
-    path: "/auth",
-    Component: AuthModal,
-  },
-  {
-    path: "/dashboard",
-    Component: Dashboard,
-  },
-  {
-    path: "/analytics",
-    Component: Analytics,
-  },
-  {
-    path: "/settings",
-    Component: Settings,
-  },
-  {
-    path: "/child",
-    Component: ChildHome,
-  },
-  {
-    path: "/calibration",
-    Component: Calibration,
-  },
-  {
-    path: "/game",
-    Component: Gameplay,
-  },
-  {
-    path: "/reward",
-    Component: Reward,
-  },
-  {
-    path: "/architecture",
-    Component: SystemArchitecture,
+    path: '/',
+    Component: Root,
+    children: [
+      { index: true, Component: SplashScreen },
+      {
+        path: 'parent',
+        Component: ParentLayout,
+        children: [
+          { index: true, Component: Dashboard },
+          { path: 'analytics', Component: Analytics },
+          { path: 'settings', Component: Settings },
+          { path: 'dev', Component: Developer },
+        ],
+      },
+      { path: 'child/lobby', Component: QuestMap },
+      { path: 'child/calibration', Component: Calibration },
+      { path: 'child/play', Component: Gameplay },
+      { path: 'child/reward', Component: Reward },
+    ],
   },
 ]);

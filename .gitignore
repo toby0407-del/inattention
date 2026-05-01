@@ -1,6 +1,11 @@
 node_modules/
 dist/
 .DS_Store
-*.log
+
+# local env
 .env
 .env.*
+
+# editor/OS
+.vscode/
+*.log
