@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../context/AppContext';
 import { ensureBlueBgm } from '../utils/blueBgm';
+import AppLogoMark from '../components/AppLogoMark';
+import { Settings } from 'lucide-react';
 
 const CORRECT_PIN = '1234';
 const DEV_PIN = '0000';
@@ -124,9 +126,11 @@ export default function SplashScreen() {
         transition={{ duration: 0.8, ease: 'easeOut' }}
       >
         <div className="flex items-center justify-center mb-3">
-          <div className="w-20 h-20 rounded-3xl flex items-center justify-center text-5xl shadow-xl"
-            style={{ background: 'linear-gradient(135deg, #20c997, #4dabf7)' }}>
-            👁️
+          <div
+            className="w-20 h-20 rounded-3xl flex items-center justify-center shadow-xl border border-white/30"
+            style={{ background: 'linear-gradient(135deg, #0d9488, #0891b2)', boxShadow: '0 12px 36px rgba(13,148,136,0.35)' }}
+          >
+            <AppLogoMark size={52} />
           </div>
         </div>
         <h1 className="text-4xl text-slate-700" style={{ fontWeight: 900, letterSpacing: '-0.5px' }}>
@@ -194,6 +198,34 @@ export default function SplashScreen() {
           </div>
         </motion.button>
       </div>
+
+      <motion.div
+        className="flex flex-wrap justify-center gap-3 px-6 mt-8 w-full max-w-3xl"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.85 }}
+      >
+        <button
+          type="button"
+          onClick={() => navigate('/child/settings')}
+          className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-white/85 text-slate-700 border-2 border-white shadow-lg active:scale-[0.98] transition-transform"
+          style={{ fontWeight: 800, fontSize: '14px' }}
+          title="不一定要先進大廳；音量與環境音在這裡"
+        >
+          <Settings className="w-5 h-5 text-teal-600 shrink-0" strokeWidth={2.3} aria-hidden />
+          兒童端設定
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/parent/settings')}
+          className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-white/50 text-slate-600 border-2 border-white/80 shadow-md active:scale-[0.98] transition-transform backdrop-blur-sm"
+          style={{ fontWeight: 800, fontSize: '14px' }}
+          title="進入後若未登入會回到首頁；登入家長後可調訓練參數"
+        >
+          <Settings className="w-5 h-5 text-blue-600 shrink-0" strokeWidth={2.3} aria-hidden />
+          訓練設定（家長）
+        </button>
+      </motion.div>
 
       {/* Bottom info */}
       <motion.div

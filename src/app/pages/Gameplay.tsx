@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { useApp } from '../context/AppContext';
+import ChildSettingsButton from '../components/ChildSettingsButton';
 import { getLevelMeta, themeBackground } from '../data/levels';
 import type { LevelMode, ZodiacInfo } from '../data/levels';
 
@@ -1303,6 +1304,7 @@ export default function Gameplay() {
             : `第 ${level} 關`}
         </div>
         <div className="flex items-center gap-2">
+          <ChildSettingsButton title="我的小設定（音量與環境音）" className="!w-12 !h-11 !min-w-[3rem] sm:!min-w-[3rem]" />
           <button
             onClick={() => { setPaused(true); setShowExitConfirm(false); }}
             className="w-14 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg transition-all active:scale-95"

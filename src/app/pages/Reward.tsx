@@ -6,6 +6,7 @@ import confetti from 'canvas-confetti';
 import { useApp } from '../context/AppContext';
 import { generateEncouragement } from '../utils/geminiEncouragement';
 import { getLevelMeta, LEVELS_META, type LevelMode } from '../data/levels';
+import { Settings } from 'lucide-react';
 
 export default function Reward() {
   const navigate = useNavigate();
@@ -274,6 +275,28 @@ export default function Reward() {
         >
           <span>🗺️</span>
           <span>回到大廳地圖</span>
+        </motion.button>
+
+        <motion.button
+          type="button"
+          className="py-3.5 rounded-2xl flex items-center justify-center gap-2"
+          style={{
+            background: 'rgba(99,102,241,0.22)',
+            border: '2px solid rgba(199,210,254,0.35)',
+            color: 'white',
+            fontWeight: 800,
+            fontSize: '15px',
+          }}
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.98 }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.28 }}
+          onClick={() => navigate('/child/settings')}
+          title="我的小設定（音量與環境音）"
+        >
+          <Settings className="w-5 h-5 shrink-0 text-indigo-200" strokeWidth={2.25} aria-hidden />
+          <span>兒童設定</span>
         </motion.button>
       </div>
     </div>

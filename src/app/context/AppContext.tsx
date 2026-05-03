@@ -30,6 +30,12 @@ interface AppContextType {
   setEyeDistanceLock: (v: boolean) => void;
   toleranceThreshold: number;
   setToleranceThreshold: (v: number) => void;
+  /** 分心等事件是否播放音效提示 */
+  soundHintEnabled: boolean;
+  setSoundHintEnabled: (v: boolean | ((prev: boolean) => boolean)) => void;
+  /** 示意：錄製／截圖介面偏好模糊（產品層可自行接資料） */
+  privacyBlurEnabled: boolean;
+  setPrivacyBlurEnabled: (v: boolean | ((prev: boolean) => boolean)) => void;
 }
 
 const defaultChild: ChildProfile = {
@@ -63,6 +69,10 @@ const AppContext = createContext<AppContextType>({
   setEyeDistanceLock: () => {},
   toleranceThreshold: 1.5,
   setToleranceThreshold: () => {},
+  soundHintEnabled: true,
+  setSoundHintEnabled: () => {},
+  privacyBlurEnabled: false,
+  setPrivacyBlurEnabled: () => {},
 });
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -77,6 +87,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [distractorLevel, setDistractorLevel] = useState<'off' | 'low' | 'medium' | 'high' | 'extreme'>('medium');
   const [eyeDistanceLock, setEyeDistanceLock] = useState(true);
   const [toleranceThreshold, setToleranceThreshold] = useState(1.5);
+  const [soundHintEnabled, setSoundHintEnabled] = useState(true);
+  const [privacyBlurEnabled, setPrivacyBlurEnabled] = useState(false);
 
   return (
     <AppContext.Provider value={{
@@ -91,6 +103,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       distractorLevel, setDistractorLevel,
       eyeDistanceLock, setEyeDistanceLock,
       toleranceThreshold, setToleranceThreshold,
+      soundHintEnabled, setSoundHintEnabled,
+      privacyBlurEnabled, setPrivacyBlurEnabled,
     }}>
       {children}
     </AppContext.Provider>

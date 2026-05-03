@@ -121,7 +121,20 @@ export default function QuestMap() {
   ).length;
 
   const headerZodiac = chapter.levels[0]?.zodiac;
+
+  /** 問號／星座卡：共通說明用「星座寓意」（任取本章有填之關卡） */
+  const constellationMeaning = useMemo(() => {
+    const direct = chapter.levels[0]?.zodiac?.meaning?.trim();
+    if (direct) return direct;
+    const fromLevel = chapter.levels.map(l => l.zodiac?.meaning?.trim()).find(Boolean);
+    return fromLevel ?? '';
+  }, [chapter]);
+
   const constellationLabel = headerZodiac ? `${headerZodiac.glyph} ${headerZodiac.nameZh}` : chapter.title;
+
+  function openChapterMeaningTip() {
+    setShowChapterTip(true);
+  }
 
   return (
     <div
@@ -131,14 +144,18 @@ export default function QuestMap() {
       {/* 黃道星區：星座名＋日期框（章節切換鈕在螢幕左下／右下） */}
       <div className="absolute left-0 right-0 z-20 flex flex-col items-center px-4 pt-[5.25rem] pb-2 max-w-lg mx-auto w-full gap-2.5 pointer-events-none">
         <div className="flex items-start justify-center gap-2 w-full px-1 pointer-events-auto">
-          <div
-            className="flex-1 min-w-0 rounded-2xl px-3.5 py-2.5 text-center"
+          <button
+            type="button"
+            className="flex-1 min-w-0 rounded-2xl px-3.5 py-2.5 text-center cursor-pointer transition-transform active:scale-[0.99]"
             style={{
               background: 'rgba(15,23,42,0.45)',
               backdropFilter: 'blur(12px)',
               border: '2px solid rgba(255,255,255,0.42)',
               boxShadow: '0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.12)',
             }}
+            title="點開看星座寓意"
+            aria-label={`${constellationLabel}：查看星座寓意與星圖說明`}
+            onClick={openChapterMeaningTip}
           >
             <div
               className="text-white leading-snug"
@@ -154,7 +171,10 @@ export default function QuestMap() {
                 太陽星座約 {headerZodiac.approxSunDates.replace(/^約\s*/, '')}
               </div>
             ) : null}
-          </div>
+            <div className="mt-1.5 text-white/65" style={{ fontWeight: 700, fontSize: '11px' }}>
+              點此或右側 ❓ 查看寓意
+            </div>
+          </button>
           <button
             type="button"
             className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-white transition-transform active:scale-90"
@@ -167,7 +187,7 @@ export default function QuestMap() {
             }}
             title="查看星座寓意與星圖說明"
             aria-label="開啟星座寓意與本頁說明"
-            onClick={() => setShowChapterTip(true)}
+            onClick={openChapterMeaningTip}
           >
             ?
           </button>
@@ -463,28 +483,29 @@ export default function QuestMap() {
               <div className="text-white mb-2" style={{ fontWeight: 900, fontSize: '18px' }}>
                 {headerZodiac ? `${headerZodiac.glyph} ${headerZodiac.nameZh}` : chapter.title}
               </div>
+
+              <div
+                className="rounded-2xl px-4 py-3.5 mb-4"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(251,191,36,0.16), rgba(167,139,250,0.12))',
+                  border: '1px solid rgba(253,224,71,0.42)',
+                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)',
+                }}
+              >
+                <div className="text-amber-200" style={{ fontWeight: 900, fontSize: '13px', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>
+                  星座寓意
+                </div>
+                <p className="text-amber-50" style={{ fontWeight: 800, fontSize: '17px', lineHeight: 1.6 }}>
+                  {constellationMeaning || `「${chapter.title}」的星座寓意將於教學內容補上。`}
+                </p>
+              </div>
+
               {headerZodiac?.approxSunDates ? (
                 <div className="text-amber-100/90 mb-3 tabular-nums" style={{ fontWeight: 800, fontSize: '13px' }}>
                   太陽星座約 {headerZodiac.approxSunDates.replace(/^約\s*/, '')}
                 </div>
               ) : null}
-              {headerZodiac?.meaning ? (
-                <div
-                  className="rounded-2xl px-4 py-3 mb-4"
-                  style={{
-                    background: 'linear-gradient(135deg, rgba(251,191,36,0.12), rgba(167,139,250,0.1))',
-                    border: '1px solid rgba(253,224,71,0.35)',
-                    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)',
-                  }}
-                >
-                  <div className="text-amber-200" style={{ fontWeight: 900, fontSize: '12px', letterSpacing: '0.06em', marginBottom: '0.45rem' }}>
-                    星座寓意
-                  </div>
-                  <p className="text-amber-50" style={{ fontWeight: 800, fontSize: '15px', lineHeight: 1.55 }}>
-                    {headerZodiac.meaning}
-                  </p>
-                </div>
-              ) : null}
+
               <p className="text-white/80" style={{ fontWeight: 600, fontSize: '14px', lineHeight: 1.55 }}>
                 教學用<strong className="text-white">簡化星圖</strong>。數字＝建議遊玩順序；金線＝主線進度，淡線＝星座示意。
               </p>
@@ -590,9 +611,23 @@ export default function QuestMap() {
                 const assembled = isChapterComplete(ch, completedLevels);
                 return (
                   <div key={ch.id} className="mb-6 pb-5 border-b border-amber-200/80 last:border-0">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-2xl">{ch.mapEmoji}</span>
-                      <div>
+                    <div className="flex items-center gap-3 mb-3">
+                      <span
+                        className="shrink-0 flex items-center justify-center rounded-2xl"
+                        style={{
+                          width: 48,
+                          height: 48,
+                          fontSize: '26px',
+                          lineHeight: 1,
+                          background: 'linear-gradient(145deg,rgba(255,255,255,0.95),rgba(254,243,199,0.9))',
+                          border: '2px solid rgba(180,83,9,0.25)',
+                          boxShadow: '0 6px 16px rgba(120,53,15,0.12)',
+                        }}
+                        title={`${ch.levels[0]?.zodiac?.nameZh ?? ch.title}`}
+                      >
+                        {ch.levels[0]?.zodiac?.glyph ?? ch.mapEmoji}
+                      </span>
+                      <div className="min-w-0 flex-1">
                         <div style={{ fontWeight: 900, fontSize: '15px', color: '#78350f' }}>
                           {ch.title}
                         </div>
@@ -601,9 +636,10 @@ export default function QuestMap() {
                         </div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 mb-3">
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-3">
                       {ch.levels.map(lvl => {
                         const unlocked = collectedLevelIds.includes(lvl.id) || completedLevels.includes(lvl.id);
+                        const starN = lvl.indexInChapter ?? lvl.id;
                         return (
                           <div
                             key={lvl.id}
@@ -614,8 +650,8 @@ export default function QuestMap() {
                             }}
                           >
                             <span style={{ opacity: unlocked ? 1 : 0.25 }}>{unlocked ? lvl.collectible.emoji : '🔒'}</span>
-                            <span style={{ fontSize: '8px', fontWeight: 900, color: unlocked ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.35)', marginTop: 4, textAlign: 'center', lineHeight: 1.2 }}>
-                              {lvl.zodiac?.glyph}主星{lvl.indexInChapter ?? lvl.id}
+                            <span style={{ fontSize: '9px', fontWeight: 900, color: unlocked ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.38)', marginTop: 4, textAlign: 'center', lineHeight: 1.2 }}>
+                              主星{starN}
                             </span>
                           </div>
                         );

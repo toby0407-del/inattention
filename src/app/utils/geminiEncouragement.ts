@@ -1,4 +1,5 @@
 import { getLevelMeta, type LevelMode } from '../data/levels';
+import { pickStoredEncouragement } from '../data/storedCoachEncouragements';
 
 function modeLabelCn(mode: LevelMode): string {
   switch (mode) {
@@ -15,10 +16,14 @@ function modeLabelCn(mode: LevelMode): string {
   }
 }
 
-function fallback(score: number, mode: LevelMode, title: string) {
-  if (score >= 92) return `超棒！你在「${title}」表現很穩，專注力像滿格能量一樣。下一關也一起加油！`;
-  if (score >= 80) return `很不錯！「${title}」這關完成得很漂亮，再多一點點就更接近滿分專注了。`;
-  return `完成就很厲害了！「${title}」這關先穩穩過，下一次我們一起把專注拉得更久。`;
+function encouragementFromStore(levelId: number, mode: LevelMode, score: number, title: string, collectibleEmoji: string) {
+  return pickStoredEncouragement({
+    levelId,
+    title,
+    modeCn: modeLabelCn(mode),
+    emoji: collectibleEmoji,
+    score,
+  });
 }
 
 export async function generateEncouragement({
@@ -32,7 +37,9 @@ export async function generateEncouragement({
 }) {
   const level = getLevelMeta(levelId);
   const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY as string | undefined;
-  if (!apiKey) return fallback(score, mode, level.story.title);
+  if (!apiKey) {
+    return encouragementFromStore(levelId, mode, score, level.story.title, level.collectible.emoji);
+  }
 
   const prompt = [
     '你是一個兒童復健/專注訓練遊戲的溫暖教練。',
@@ -60,15 +67,19 @@ export async function generateEncouragement({
         }),
       },
     );
-    if (!res.ok) return fallback(score, mode, level.story.title);
+    if (!res.ok) {
+      return encouragementFromStore(levelId, mode, score, level.story.title, level.collectible.emoji);
+    }
     const data: any = await res.json();
     const text =
       data?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text).filter(Boolean).join('') ??
       '';
     const cleaned = String(text).replace(/\s+/g, ' ').trim();
-    return cleaned.length ? cleaned : fallback(score, mode, level.story.title);
+    return cleaned.length
+      ? cleaned
+      : encouragementFromStore(levelId, mode, score, level.story.title, level.collectible.emoji);
   } catch {
-    return fallback(score, mode, level.story.title);
+    return encouragementFromStore(levelId, mode, score, level.story.title, level.collectible.emoji);
   }
 }
 

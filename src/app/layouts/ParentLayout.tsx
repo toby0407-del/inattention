@@ -3,11 +3,12 @@ import { motion } from 'motion/react';
 import { LayoutDashboard, BarChart2, Settings, LogOut, ChevronDown, Code2 } from 'lucide-react';
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import AppLogoMark from '../components/AppLogoMark';
 
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: '數據儀表板', path: '/parent' },
   { icon: BarChart2, label: '專注力報告', path: '/parent/analytics' },
-  { icon: Settings, label: '訓練設定', path: '/parent/settings' },
+  { icon: Settings, label: '親子設定', path: '/parent/settings' },
   { icon: Code2, label: '開發者通道', path: '/parent/dev' },
 ];
 
@@ -42,9 +43,11 @@ export default function ParentLayout() {
         {/* Logo */}
         <div className="p-6 border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-xl shadow"
-              style={{ background: 'linear-gradient(135deg, #20c997, #4dabf7)' }}>
-              👁️
+            <div
+              className="w-10 h-10 rounded-2xl flex items-center justify-center shadow border border-white/25"
+              style={{ background: 'linear-gradient(135deg, #0d9488, #0891b2)', boxShadow: '0 4px 14px rgba(13,148,136,0.35)' }}
+            >
+              <AppLogoMark size={26} />
             </div>
             <div>
               <div className="text-slate-800" style={{ fontWeight: 800, fontSize: '15px' }}>小小聚焦家</div>
@@ -92,13 +95,27 @@ export default function ParentLayout() {
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top bar */}
-        <header className="bg-white border-b border-slate-100 px-8 py-4 flex items-center justify-between flex-shrink-0">
+        <header className="bg-white border-b border-slate-100 px-8 py-4 flex items-center justify-between flex-shrink-0 gap-4">
           <div>
             <div className="text-slate-800" style={{ fontWeight: 700, fontSize: '18px' }}>{currentNav.label}</div>
             <div className="text-slate-400" style={{ fontWeight: 500, fontSize: '13px' }}>治療師：林醫師</div>
           </div>
 
-          {/* Child switcher */}
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              type="button"
+              onClick={() => navigate('/parent/settings')}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors text-slate-600"
+              title="親子設定"
+              aria-label="開啟親子設定"
+            >
+              <Settings size={18} className="text-slate-500 shrink-0" aria-hidden />
+              <span className="hidden sm:inline" style={{ fontWeight: 700, fontSize: '14px' }}>
+                設定
+              </span>
+            </button>
+
+            {/* Child switcher */}
           <div className="relative">
             <button
               onClick={() => setShowChildPicker(v => !v)}
@@ -132,6 +149,7 @@ export default function ParentLayout() {
                 ))}
               </motion.div>
             )}
+          </div>
           </div>
         </header>
 

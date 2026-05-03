@@ -1,9 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { Eye, Sliders, Zap, RefreshCw, Shield, Volume2, CheckCircle, BarChart2, Sparkles } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import PatientAmbientSettingsPanel from '../components/PatientAmbientSettingsPanel';
+import { loadPatientAmbient, type PatientAmbientConfig } from '../utils/blueBgm';
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -14,11 +16,22 @@ export default function Settings() {
     lastGameScore,
     totalStars,
     selectedChild,
+    soundHintEnabled,
+    setSoundHintEnabled,
+    privacyBlurEnabled,
+    setPrivacyBlurEnabled,
   } = useApp();
 
   const [calibrating, setCalibrating] = useState(false);
   const [calibDone, setCalibDone] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  /** 僅摘要用：與兒童端背景聲區塊透過面板回呼維持同步 */
+  const [ambientPreview, setAmbientPreview] = useState<PatientAmbientConfig>(() => loadPatientAmbient());
+
+  useEffect(() => {
+    setAmbientPreview(loadPatientAmbient());
+  }, []);
 
   function handleCalibrate() {
     setCalibrating(true);
@@ -68,8 +81,36 @@ export default function Settings() {
     >
       <div className="lg:col-span-7 space-y-6 min-w-0">
       <div>
-        <h2 style={{ fontWeight: 800, fontSize: '20px', color: '#1e293b' }}>訓練設定與難度調整</h2>
-        <p style={{ fontWeight: 500, fontSize: '13px', color: '#94a3b8' }}>個人化設定每位孩童的訓練參數</p>
+        <h2 style={{ fontWeight: 800, fontSize: '20px', color: '#1e293b' }}>親子設定</h2>
+        <p style={{ fontWeight: 500, fontSize: '13px', color: '#94a3b8' }}>
+          請在家長／治療師通道內完成設定；兒童端星圖不再提供獨立設定入口。
+        </p>
+      </div>
+
+      <motion.div
+        className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <div className="p-6 border-b border-slate-100 flex gap-4">
+          <div className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center shrink-0">
+            <Volume2 size={20} className="text-slate-600" aria-hidden />
+          </div>
+          <div className="min-w-0">
+            <div style={{ fontWeight: 800, fontSize: '15px', color: '#1e293b' }}>兒童訓練端｜背景聲與白噪音</div>
+            <p style={{ fontWeight: 500, fontSize: '13px', color: '#64748b', marginTop: 4, lineHeight: 1.5 }}>
+              適用星圖與遊玩時的環境低音。請在實際給孩子使用的裝置上登入本通道後調整並試聽。
+            </p>
+          </div>
+        </div>
+        <div className="p-6 bg-slate-100/80">
+          <PatientAmbientSettingsPanel onConfigChange={setAmbientPreview} />
+        </div>
+      </motion.div>
+
+      <div>
+        <h3 style={{ fontWeight: 800, fontSize: '17px', color: '#1e293b' }}>訓練與安全</h3>
+        <p style={{ fontWeight: 500, fontSize: '13px', color: '#94a3b8' }}>個人化每位孩童的訓練參數</p>
       </div>
 
       {/* Eye distance lock */}
@@ -261,22 +302,49 @@ export default function Settings() {
         transition={{ delay: 0.4 }}
       >
         <div style={{ fontWeight: 700, fontSize: '15px', color: '#1e293b', marginBottom: '16px' }}>其他設定</div>
-        {[
-          { icon: Volume2, label: '音效提示', desc: '分心時發出提示音效', enabled: true },
-          { icon: Shield, label: '隱私保護模式', desc: '自動模糊螢幕截圖', enabled: false },
-        ].map(item => (
-          <div key={item.label} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-none">
-            <div className="flex items-center gap-3">
-              <item.icon size={18} className="text-slate-400" />
-              <div>
+        {(
+          [
+            {
+              key: 'sound',
+              icon: Volume2,
+              label: '音效提示',
+              desc: '分心時發出提示音效',
+              value: soundHintEnabled,
+              set: setSoundHintEnabled,
+            },
+            {
+              key: 'privacy',
+              icon: Shield,
+              label: '隱私保護模式',
+              desc: '自動模糊螢幕截圖（示意選項）',
+              value: privacyBlurEnabled,
+              set: setPrivacyBlurEnabled,
+            },
+          ] as const
+        ).map(item => (
+          <div key={item.key} className="flex items-center justify-between gap-4 py-3 border-b border-slate-50 last:border-none">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <item.icon size={18} className="text-slate-400 shrink-0" aria-hidden />
+              <div className="min-w-0">
                 <div style={{ fontWeight: 600, fontSize: '14px', color: '#334155' }}>{item.label}</div>
                 <div style={{ fontWeight: 500, fontSize: '12px', color: '#94a3b8' }}>{item.desc}</div>
               </div>
             </div>
-            <div className="w-10 h-6 rounded-full relative" style={{ background: item.enabled ? '#20c997' : '#e2e8f0' }}>
-              <div className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-sm"
-                style={{ left: item.enabled ? '18px' : '2px', transition: 'left 0.2s' }} />
-            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={item.value}
+              aria-label={`${item.label}：${item.value ? '開啟' : '關閉'}`}
+              onClick={() => item.set(v => !v)}
+              className="relative w-14 h-8 rounded-full transition-all duration-300 flex-shrink-0 touch-manipulation"
+              style={{ background: item.value ? 'linear-gradient(135deg, #20c997, #4dabf7)' : '#e2e8f0' }}
+            >
+              <motion.div
+                className="absolute top-1 w-6 h-6 bg-white rounded-full shadow-md"
+                animate={{ x: item.value ? 30 : 2 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+              />
+            </button>
           </div>
         ))}
       </motion.div>
@@ -322,6 +390,21 @@ export default function Settings() {
             <li className="flex gap-3 items-start">
               <span className="shrink-0 w-2 h-2 rounded-full mt-1.5 bg-amber-500" />
               <span><span className="text-slate-500 font-semibold">干擾強度：</span>{currentDistractor?.icon} {currentDistractor?.label}（{currentDistractor?.desc}）</span>
+            </li>
+            <li className="flex gap-3 items-start">
+              <span className="shrink-0 w-2 h-2 rounded-full mt-1.5" style={{ background: soundHintEnabled ? '#059669' : '#94a3b8' }} />
+              <span><span className="text-slate-500 font-semibold">音效提示：</span>{soundHintEnabled ? '開啟' : '關閉'}</span>
+            </li>
+            <li className="flex gap-3 items-start">
+              <span className="shrink-0 w-2 h-2 rounded-full mt-1.5" style={{ background: privacyBlurEnabled ? '#059669' : '#94a3b8' }} />
+              <span><span className="text-slate-500 font-semibold">隱私模糊：</span>{privacyBlurEnabled ? '開啟' : '關閉'}</span>
+            </li>
+            <li className="flex gap-3 items-start">
+              <span className="shrink-0 w-2 h-2 rounded-full mt-1.5" style={{ background: ambientPreview.enabled ? '#0f172a' : '#94a3b8' }} />
+              <span>
+                <span className="text-slate-500 font-semibold">兒童端背景聲：</span>
+                {ambientPreview.enabled ? `開啟（音量約 ${Math.round(ambientPreview.volume)}%）` : '關閉'}
+              </span>
             </li>
           </ul>
           <button

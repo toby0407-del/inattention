@@ -21,8 +21,12 @@ export default defineConfig({
     /** 同一區網可用 Network 網址；手機勿用 localhost，要用電腦的 IP */
     host: true,
     port: 5173,
-    /** 啟動後自動開瀏覽器到星圖大廳，避免忘了路徑或伺服器未開 */
-    open: '/child/lobby',
+    /** 先開首頁（若自動開分頁卡死，請改 false 後手動輸入網址） */
+    open: '/',
+  },
+  optimizeDeps: {
+    /** 開發時預編譯，避免 Three / R3F 第一次載入卡住或報錯 */
+    include: ['three', '@react-three/fiber', '@react-three/drei'],
   },
   plugins: [
     figmaAssetResolver(),
@@ -32,6 +36,7 @@ export default defineConfig({
     tailwindcss(),
   ],
   resolve: {
+    dedupe: ['three', 'react', 'react-dom'],
     alias: {
       // Alias @ to the src directory
       '@': path.resolve(__dirname, './src'),

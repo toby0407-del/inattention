@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
+import { Settings } from 'lucide-react';
 
 interface CalibPoint {
   id: number;
@@ -224,9 +225,20 @@ export default function Calibration() {
         </motion.div>
       )}
 
+      <button
+        type="button"
+        className="absolute top-4 left-4 z-30 flex items-center gap-2 px-4 py-2.5 rounded-2xl text-white/85 hover:text-white transition-all bg-white/10 border border-white/20 backdrop-blur-sm"
+        style={{ fontWeight: 800, fontSize: '13px' }}
+        title="校正途中也可調整音量與環境音"
+        onClick={() => navigate('/child/settings')}
+      >
+        <Settings className="w-[18px] h-[18px] shrink-0 text-cyan-200" strokeWidth={2.4} aria-hidden />
+        設定
+      </button>
+
       {/* Skip button (hidden, low opacity) */}
       <button
-        className="absolute top-4 right-4 text-white/20 hover:text-white/60 transition-all"
+        className="absolute top-4 right-4 text-white/20 hover:text-white/60 transition-all z-30"
         style={{ fontWeight: 500, fontSize: '12px' }}
         onClick={() => navigate('/child/lobby')}
       >
