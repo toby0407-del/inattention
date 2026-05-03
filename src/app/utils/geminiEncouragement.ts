@@ -1,8 +1,21 @@
-import { getLevelMeta } from '../data/levels';
+import { getLevelMeta, type LevelMode } from '../data/levels';
 
-type Mode = 'spot' | 'jigsaw';
+function modeLabelCn(mode: LevelMode): string {
+  switch (mode) {
+    case 'spot':
+      return '找不同';
+    case 'jigsaw':
+      return '拼圖';
+    case 'order':
+      return '順序排列';
+    case 'memory':
+      return '記憶配對';
+    default:
+      return '挑戰';
+  }
+}
 
-function fallback(score: number, mode: Mode, title: string) {
+function fallback(score: number, mode: LevelMode, title: string) {
   if (score >= 92) return `超棒！你在「${title}」表現很穩，專注力像滿格能量一樣。下一關也一起加油！`;
   if (score >= 80) return `很不錯！「${title}」這關完成得很漂亮，再多一點點就更接近滿分專注了。`;
   return `完成就很厲害了！「${title}」這關先穩穩過，下一次我們一起把專注拉得更久。`;
@@ -14,7 +27,7 @@ export async function generateEncouragement({
   score,
 }: {
   levelId: number;
-  mode: Mode;
+  mode: LevelMode;
   score: number;
 }) {
   const level = getLevelMeta(levelId);
@@ -27,7 +40,7 @@ export async function generateEncouragement({
     '避免使用「AI」「模型」等字眼；避免誇大療效；語氣親切、具體、正向。',
     `關卡：第${level.id}關`,
     `故事：${level.story.title}`,
-    `模式：${mode === 'spot' ? '找不同' : '拼圖'}`,
+    `模式：${modeLabelCn(mode)}`,
     `專注分數：${score}/100`,
     `收集物：${level.collectible.emoji} ${level.collectible.name}`,
   ].join('\n');

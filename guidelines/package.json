@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "name": "guidelines-workspace-alias",
+  "scripts": {
+    "dev": "npm --prefix \"..\" run dev",
+    "build": "npm --prefix \"..\" run build"
+  }
+}

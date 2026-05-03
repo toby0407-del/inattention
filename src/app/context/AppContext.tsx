@@ -46,13 +46,14 @@ const AppContext = createContext<AppContextType>({
   setIsDeveloperAuth: () => {},
   selectedChild: defaultChild,
   setSelectedChild: () => {},
-  totalStars: 12,
+  totalStars: 30,
   setTotalStars: () => {},
-  completedLevels: [1],
+  /** 預設：已通關 1～10 關，可玩第 11 關（章節制共 23 關，可自行改回 [1] 從頭玩） */
+  completedLevels: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
   setCompletedLevels: () => {},
-  collectedLevelIds: [1],
+  collectedLevelIds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
   setCollectedLevelIds: () => {},
-  currentLevel: 2,
+  currentLevel: 11,
   setCurrentLevel: () => {},
   lastGameScore: 0,
   setLastGameScore: () => {},
@@ -68,10 +69,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isParentAuth, setIsParentAuth] = useState(false);
   const [isDeveloperAuth, setIsDeveloperAuth] = useState(false);
   const [selectedChild, setSelectedChild] = useState<ChildProfile>(defaultChild);
-  const [totalStars, setTotalStars] = useState(12);
-  const [completedLevels, setCompletedLevels] = useState<number[]>([1]);
-  const [collectedLevelIds, setCollectedLevelIds] = useState<number[]>([1]);
-  const [currentLevel, setCurrentLevel] = useState(2);
+  const [totalStars, setTotalStars] = useState(30);
+  const [completedLevels, setCompletedLevels] = useState<number[]>([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  const [collectedLevelIds, setCollectedLevelIds] = useState<number[]>([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  const [currentLevel, setCurrentLevel] = useState(11);
   const [lastGameScore, setLastGameScore] = useState(0);
   const [distractorLevel, setDistractorLevel] = useState<'off' | 'low' | 'medium' | 'high' | 'extreme'>('medium');
   const [eyeDistanceLock, setEyeDistanceLock] = useState(true);

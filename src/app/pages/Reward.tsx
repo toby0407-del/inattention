@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import confetti from 'canvas-confetti';
 import { useApp } from '../context/AppContext';
 import { generateEncouragement } from '../utils/geminiEncouragement';
-import { getLevelMeta } from '../data/levels';
+import { getLevelMeta, LEVELS_META, type LevelMode } from '../data/levels';
 
 export default function Reward() {
   const navigate = useNavigate();
@@ -16,9 +16,12 @@ export default function Reward() {
   const [encouragementLoading, setEncouragementLoading] = useState(false);
 
   const level = Number(searchParams.get('level') ?? 1);
-  const mode = searchParams.get('mode') ?? 'spot';
-  const isSpot = mode === 'spot';
+  const rawMode = searchParams.get('mode');
+  const mode: LevelMode =
+    rawMode === 'spot' || rawMode === 'jigsaw' || rawMode === 'order' || rawMode === 'memory' ? rawMode : 'spot';
   const levelMeta = getLevelMeta(level);
+  const maxLevelId = LEVELS_META[LEVELS_META.length - 1]!.id;
+  const nextLevelMeta = LEVELS_META.find(l => l.id === level + 1);
   const score = lastGameScore > 0 ? lastGameScore : 88;
 
   useEffect(() => {
@@ -67,7 +70,7 @@ export default function Reward() {
   useEffect(() => {
     let cancelled = false;
     setEncouragementLoading(true);
-    generateEncouragement({ levelId: level, mode: (isSpot ? 'spot' : 'jigsaw'), score })
+    generateEncouragement({ levelId: level, mode, score })
       .then((t) => {
         if (cancelled) return;
         setEncouragement(t);
@@ -79,7 +82,7 @@ export default function Reward() {
     return () => {
       cancelled = true;
     };
-  }, [level, isSpot, score]);
+  }, [level, mode, score]);
 
   return (
     <div
@@ -129,7 +132,7 @@ export default function Reward() {
           }}
           transition={{ duration: 0.8, delay: 0.5, repeat: 2 }}
         >
-          {isSpot ? '🔍✨' : '🧩'}
+          {mode === 'spot' ? '🔍✨' : mode === 'jigsaw' ? '🧩' : mode === 'order' ? '📜✨' : '🧠✨'}
         </motion.div>
       </motion.div>
 
@@ -144,7 +147,10 @@ export default function Reward() {
           太棒了！🎉
         </div>
         <div className="text-white/80 mt-1" style={{ fontWeight: 700, fontSize: '17px' }}>
-          第 {level} 關完成！拿到 {levelMeta.collectible.emoji} {levelMeta.collectible.name}
+          {levelMeta.chapterId != null && levelMeta.indexInChapter != null
+            ? `第 ${levelMeta.chapterId}-${levelMeta.indexInChapter} 關完成！`
+            : `第 ${level} 關完成！`}
+          拿到 {levelMeta.collectible.emoji} {levelMeta.collectible.name}
         </div>
       </motion.div>
 
@@ -209,9 +215,16 @@ export default function Reward() {
             今日評語
           </div>
           <div className="text-white mt-1" style={{ fontWeight: 800, fontSize: '15px', lineHeight: 1.5 }}>
-            {encouragementLoading ? '正在生成鼓勵中…' : (encouragement || (isSpot
-              ? '你的眼睛超厲害！找到了所有不同的地方 👀'
-              : '拼圖完成啦！所有圖塊都回到正確位置了 🎊'))}
+            {encouragementLoading
+              ? '正在生成鼓勵中…'
+              : (encouragement ||
+                (mode === 'spot'
+                  ? '你的眼睛超厲害！找到了所有不同的地方 👀'
+                  : mode === 'jigsaw'
+                  ? '拼圖完成啦！所有圖塊都回到正確位置了 🎊'
+                  : mode === 'order'
+                  ? '順序排得好整齊！故事線在你心中超清楚 📜'
+                  : '記憶力滿分！每個圖標都回到正確的位置了 🧠'))}
           </div>
           <div className="text-white/50 mt-1" style={{ fontWeight: 700, fontSize: '11px' }}>
             {import.meta.env?.VITE_GEMINI_API_KEY ? '由 Gemini 產生' : '（未設定 Gemini Key，使用備用文案）'}
@@ -223,16 +236,25 @@ export default function Reward() {
       <div className="flex flex-col gap-4 w-full max-w-xs px-4">
         <motion.button
           className="py-5 rounded-2xl text-white flex items-center justify-center gap-3 shadow-2xl"
-          style={{ background: 'linear-gradient(135deg, #ffd43b, #ff922b)', fontWeight: 900, fontSize: '18px' }}
+          style={{
+            background: nextLevelMeta
+              ? 'linear-gradient(135deg, #ffd43b, #ff922b)'
+              : 'linear-gradient(135deg, #20c997, #4dabf7)',
+            fontWeight: 900,
+            fontSize: '18px',
+          }}
           whileHover={{ scale: 1.04 }}
           whileTap={{ scale: 0.97 }}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.1 }}
-          onClick={() => navigate(`/child/play?mode=${isSpot ? 'jigsaw' : 'spot'}&level=${level + 1}`)}
+          onClick={() => {
+            if (nextLevelMeta) navigate(`/child/play?mode=${nextLevelMeta.mode}&level=${nextLevelMeta.id}`);
+            else navigate('/child/lobby');
+          }}
         >
-          <span>▶▶</span>
-          <span>前往下一關</span>
+          <span>{nextLevelMeta ? '▶▶' : '🗺️'}</span>
+          <span>{nextLevelMeta ? '前往下一關' : level >= maxLevelId ? '恭喜通關！回大廳' : '回大廳地圖'}</span>
         </motion.button>
 
         <motion.button
