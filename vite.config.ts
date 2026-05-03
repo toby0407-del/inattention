@@ -18,8 +18,11 @@ function figmaAssetResolver() {
 
 export default defineConfig({
   server: {
+    /** 同一區網可用 Network 網址；手機勿用 localhost，要用電腦的 IP */
     host: true,
     port: 5173,
+    /** 啟動後自動開瀏覽器到星圖大廳，避免忘了路徑或伺服器未開 */
+    open: '/child/lobby',
   },
   plugins: [
     figmaAssetResolver(),

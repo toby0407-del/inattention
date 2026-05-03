@@ -146,11 +146,16 @@ export default function Reward() {
         <div className="text-white" style={{ fontWeight: 900, fontSize: '32px', textShadow: '0 0 20px rgba(255,212,59,0.6)' }}>
           太棒了！🎉
         </div>
-        <div className="text-white/80 mt-1" style={{ fontWeight: 700, fontSize: '17px' }}>
-          {levelMeta.chapterId != null && levelMeta.indexInChapter != null
-            ? `第 ${levelMeta.chapterId}-${levelMeta.indexInChapter} 關完成！`
-            : `第 ${level} 關完成！`}
-          拿到 {levelMeta.collectible.emoji} {levelMeta.collectible.name}
+        <div className="text-white/80 mt-1 px-6" style={{ fontWeight: 700, fontSize: '17px', lineHeight: 1.45 }}>
+          {levelMeta.zodiac
+            ? `${levelMeta.zodiac.glyph} ${levelMeta.zodiac.nameZh} 已點亮！`
+            : levelMeta.chapterId != null && levelMeta.indexInChapter != null
+              ? `第 ${levelMeta.chapterId}-${levelMeta.indexInChapter} 關完成！`
+              : `第 ${level} 關完成！`}
+          <br />
+          <span className="text-white/70" style={{ fontWeight: 600, fontSize: '15px' }}>
+            {levelMeta.zodiac ? `寓意：${levelMeta.zodiac.meaning}` : `拿到 ${levelMeta.collectible.emoji} ${levelMeta.collectible.name}`}
+          </span>
         </div>
       </motion.div>
 

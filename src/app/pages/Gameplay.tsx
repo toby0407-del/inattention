@@ -5,11 +5,45 @@ import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { useApp } from '../context/AppContext';
 import { getLevelMeta, themeBackground } from '../data/levels';
-import type { LevelMode } from '../data/levels';
+import type { LevelMode, ZodiacInfo } from '../data/levels';
 
 const PIECE_TYPE = 'PUZZLE_PIECE';
 const ORDER_CARD_TYPE = 'ORDER_CARD';
 const MEMORY_ITEM_TYPE = 'MEMORY_ITEM';
+
+function ZodiacPortraitCaption({
+  zodiac,
+  compact,
+}: {
+  zodiac?: ZodiacInfo;
+  compact?: boolean;
+}) {
+  if (!zodiac) return null;
+  return (
+    <div
+      className="absolute left-0 right-0 top-0 z-10 rounded-t-2xl overflow-hidden px-1.5 py-1 sm:py-1.5"
+      style={{
+        background: 'linear-gradient(180deg, rgba(15,23,42,0.92) 0%, rgba(15,23,42,0.4) 70%, transparent 100%)',
+        pointerEvents: 'none',
+      }}
+    >
+      <div className="text-white text-center leading-tight">
+        <div style={{ fontWeight: 900, fontSize: compact ? '8px' : '11px' }}>
+          {zodiac.glyph} {zodiac.nameZh} <span className="text-white/65">({zodiac.latin})</span>
+        </div>
+        {compact ? (
+          <div className="text-white/78 mt-0.5" style={{ fontWeight: 600, fontSize: '7px', lineHeight: 1.3 }}>
+            {zodiac.meaning.length > 32 ? `${zodiac.meaning.slice(0, 32)}…` : zodiac.meaning}
+          </div>
+        ) : (
+          <div className="text-white/88" style={{ fontWeight: 600, fontSize: '10px', lineHeight: 1.35, marginTop: 2 }}>
+            {zodiac.meaning}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ===================== SVG SCENE =====================
 function GardenScene({ showDiff }: { showDiff: boolean }) {
@@ -135,7 +169,7 @@ const DIFFERENCES: Difference[] = [
   { id: 5, label: '兔子和小鳥不見了', x: 56, y: 78 },
 ];
 
-function SpotDiff({ onComplete }: { onComplete: () => void }) {
+function SpotDiff({ onComplete, zodiac }: { onComplete: () => void; zodiac?: ZodiacInfo }) {
   const [found, setFound] = useState<number[]>([]);
   const [wrongClicks, setWrongClicks] = useState<{ x: number; y: number; id: number }[]>([]);
   const rightRef = useRef<HTMLDivElement>(null);
@@ -185,7 +219,8 @@ function SpotDiff({ onComplete }: { onComplete: () => void }) {
         <div className="flex-1 rounded-2xl overflow-hidden border-3 border-white/30 shadow-2xl relative"
           style={{ border: '3px solid rgba(255,255,255,0.3)', minHeight: 0 }}>
           <GardenScene showDiff={false} />
-          <div className="absolute top-2 left-2 bg-black/50 text-white px-2 py-1 rounded-lg" style={{ fontSize: '11px', fontWeight: 700 }}>
+          <ZodiacPortraitCaption zodiac={zodiac} compact />
+          <div className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded-lg z-20" style={{ fontSize: '11px', fontWeight: 700 }}>
             原圖
           </div>
         </div>
@@ -198,7 +233,8 @@ function SpotDiff({ onComplete }: { onComplete: () => void }) {
           onClick={handleRightClick}
         >
           <GardenScene showDiff={true} />
-          <div className="absolute top-2 left-2 bg-black/50 text-white px-2 py-1 rounded-lg" style={{ fontSize: '11px', fontWeight: 700 }}>
+          <ZodiacPortraitCaption zodiac={zodiac} compact />
+          <div className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded-lg z-20" style={{ fontSize: '11px', fontWeight: 700 }}>
             找不同
           </div>
 
@@ -380,7 +416,7 @@ function PuzzleTrayStrip({
   );
 }
 
-function JigsawGame({ onComplete }: { onComplete: () => void }) {
+function JigsawGame({ onComplete, zodiac }: { onComplete: () => void; zodiac?: ZodiacInfo }) {
   const [slots, setSlots] = useState<(number | null)[]>(Array(9).fill(null));
   const [tray, setTray] = useState<number[]>(() => shuffleArray(PIECES_DATA.map(p => p.id)));
   const [slotWrong, setSlotWrong] = useState<boolean[]>(() => Array(9).fill(false));
@@ -468,20 +504,43 @@ function JigsawGame({ onComplete }: { onComplete: () => void }) {
 
         {/* Reference image */}
         <div className="flex justify-center mb-3">
-          <div className="rounded-xl overflow-hidden border border-white/30 shadow-lg" style={{ width: 100 }}>
-            <div className="grid grid-cols-3 gap-0.5 p-0.5 bg-white/20">
+          <div className="relative rounded-xl overflow-hidden border border-white/30 shadow-lg" style={{ width: 100 }}>
+            <ZodiacPortraitCaption zodiac={zodiac} compact />
+            <div className="grid grid-cols-3 gap-0.5 p-0.5 bg-white/20 mt-8">
               {PIECES_DATA.map(p => (
                 <div key={p.id} className="rounded flex items-center justify-center" style={{ background: p.bg, aspectRatio: '1', fontSize: '14px' }}>
                   {p.emoji}
                 </div>
               ))}
             </div>
-            <div className="text-center text-white/60 py-1" style={{ fontSize: '9px', fontWeight: 700 }}>參考圖</div>
+            <div className="text-center text-white/70 py-1 px-1" style={{ fontSize: '9px', fontWeight: 700, lineHeight: 1.3 }}>
+              參考圖{zodiac ? ` · ${zodiac.nameZh}` : ''}
+            </div>
+            {zodiac && (
+              <div className="text-center text-white/55 px-1 pb-1" style={{ fontSize: '8px', fontWeight: 600, lineHeight: 1.35 }}>
+                {zodiac.meaning}
+              </div>
+            )}
           </div>
         </div>
 
         {/* Main puzzle grid */}
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex-1 flex flex-col items-center justify-center">
+          {zodiac && (
+            <div className="w-full max-w-[min(280px,60vw)] mb-3 px-1">
+              <div
+                className="text-center px-3 py-2 rounded-2xl"
+                style={{ background: 'rgba(15,23,42,0.55)', border: '1px solid rgba(255,255,255,0.14)' }}
+              >
+                <div className="text-white" style={{ fontWeight: 900, fontSize: '12px', lineHeight: 1.3 }}>
+                  {zodiac.glyph} {zodiac.nameZh} ({zodiac.latin})
+                </div>
+                <div className="text-white/80 mt-1" style={{ fontWeight: 600, fontSize: '11px', lineHeight: 1.45 }}>
+                  {zodiac.meaning}
+                </div>
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-3 gap-2" style={{ width: 'min(280px, 60vw)', height: 'min(280px, 60vw)' }}>
             {Array(9).fill(null).map((_, i) => (
               <DropSlot
@@ -665,7 +724,7 @@ function OrderTrayStrip({
   );
 }
 
-function OrderSortGame({ onComplete }: { onComplete: () => void }) {
+function OrderSortGame({ onComplete, zodiac }: { onComplete: () => void; zodiac?: ZodiacInfo }) {
   const [slots, setSlots] = useState<(number | null)[]>(() => Array(ORDER_CARDS.length).fill(null));
   const [tray, setTray] = useState<number[]>(() => shuffleArray(ORDER_CARDS.map(c => c.id)));
   const [checkHint, setCheckHint] = useState<string | null>(null);
@@ -726,6 +785,17 @@ function OrderSortGame({ onComplete }: { onComplete: () => void }) {
         <div className="text-center text-white/75 pt-2 pb-1" style={{ fontWeight: 800, fontSize: 13, lineHeight: 1.5 }}>
           把下面圖卡拖進上面格子，排出「一天故事的先後順序」— 隨意調整後按檢查
         </div>
+
+        {zodiac && (
+          <div className="mt-2 mx-auto max-w-md text-center px-3 py-2 rounded-2xl" style={{ background: 'rgba(15,23,42,0.45)', border: '1px solid rgba(255,255,255,0.14)' }}>
+            <div className="text-yellow-50" style={{ fontWeight: 900, fontSize: '12px' }}>
+              {zodiac.glyph} {zodiac.nameZh} ({zodiac.latin})
+            </div>
+            <div className="text-white/80 mt-1" style={{ fontWeight: 600, fontSize: '11px', lineHeight: 1.45 }}>
+              {zodiac.meaning}
+            </div>
+          </div>
+        )}
 
         <div className="flex justify-center gap-2 flex-wrap mt-3 mb-3">
           {slots.map((id, i) => (
@@ -916,7 +986,7 @@ function MemoryTrayStrip({
   );
 }
 
-function MemoryMatchGame({ onComplete }: { onComplete: () => void }) {
+function MemoryMatchGame({ onComplete, zodiac }: { onComplete: () => void; zodiac?: ZodiacInfo }) {
   const [phase, setPhase] = useState<'memorize' | 'play'>('memorize');
   const [slots, setSlots] = useState<(number | null)[]>(() => Array(MEMORY_ITEMS.length).fill(null));
   const [tray, setTray] = useState<number[]>([]);
@@ -988,6 +1058,17 @@ function MemoryMatchGame({ onComplete }: { onComplete: () => void }) {
         <div className="text-center pt-2 pb-2" style={{ fontWeight: 900, fontSize: 13, color: 'rgba(255,255,255,0.88)' }}>
           {phase === 'memorize' ? '先看清楚⋯ 等等格子會遮住，要靠記憶拖回去！' : '憑記憶把圖標拖回原位 — 排好後按檢查'}
         </div>
+
+        {zodiac && (
+          <div className="mx-auto mb-2 max-w-md text-center px-3 py-2 rounded-2xl" style={{ background: 'rgba(15,23,42,0.45)', border: '1px solid rgba(255,255,255,0.14)' }}>
+            <div style={{ fontWeight: 900, fontSize: '12px', color: '#fef3c7' }}>
+              {zodiac.glyph} {zodiac.nameZh} ({zodiac.latin})
+            </div>
+            <div className="text-white/82 mt-1" style={{ fontWeight: 600, fontSize: '11px', lineHeight: 1.45 }}>
+              {zodiac.meaning}
+            </div>
+          </div>
+        )}
 
         <div className="flex justify-center gap-4 flex-wrap my-4">
           {MEMORY_ITEMS.map((m, slotIndex) => (
@@ -1174,17 +1255,20 @@ export default function Gameplay() {
                 <div className="text-5xl">{levelMeta.collectible.emoji}</div>
                 <div className="flex-1">
                   <div className="text-white" style={{ fontWeight: 900, fontSize: '18px' }}>
-                    {levelMeta.chapterId != null && levelMeta.indexInChapter != null
-                      ? `第 ${levelMeta.chapterId}-${levelMeta.indexInChapter} 關`
-                      : `第 ${levelMeta.id} 關`}
-                    {' · '}
-                    {levelMeta.story.title}
+                    {levelMeta.zodiac
+                      ? `${levelMeta.zodiac.glyph} ${levelMeta.zodiac.nameZh} (${levelMeta.zodiac.latin})`
+                      : levelMeta.chapterId != null && levelMeta.indexInChapter != null
+                        ? `第 ${levelMeta.chapterId}-${levelMeta.indexInChapter} 關`
+                        : `第 ${levelMeta.id} 關`}
+                  </div>
+                  <div className="text-amber-100/95 mt-1" style={{ fontWeight: 700, fontSize: '13px', lineHeight: 1.5 }}>
+                    {levelMeta.zodiac ? `寓意：${levelMeta.zodiac.meaning}` : levelMeta.story.title}
                   </div>
                   <div className="text-white/75 mt-2" style={{ fontWeight: 600, fontSize: '13px', lineHeight: 1.6 }}>
                     {levelMeta.story.text}
                   </div>
                   <div className="text-white/75 mt-3" style={{ fontWeight: 800, fontSize: '13px' }}>
-                    🧩 本關碎片：{levelMeta.collectible.emoji} {levelMeta.collectible.name}
+                    ✨ 星辰印記：{levelMeta.collectible.emoji} {levelMeta.collectible.name}
                   </div>
                 </div>
               </div>
@@ -1239,13 +1323,13 @@ export default function Gameplay() {
       {/* Game area */}
       <div className="flex-1 overflow-hidden" style={{ pointerEvents: paused ? 'none' : 'auto' }}>
         {mode === 'spot' ? (
-          <SpotDiff onComplete={handleComplete} />
+          <SpotDiff onComplete={handleComplete} zodiac={levelMeta.zodiac} />
         ) : mode === 'jigsaw' ? (
-          <JigsawGame onComplete={handleComplete} />
+          <JigsawGame onComplete={handleComplete} zodiac={levelMeta.zodiac} />
         ) : mode === 'order' ? (
-          <OrderSortGame onComplete={handleComplete} />
+          <OrderSortGame onComplete={handleComplete} zodiac={levelMeta.zodiac} />
         ) : (
-          <MemoryMatchGame onComplete={handleComplete} />
+          <MemoryMatchGame onComplete={handleComplete} zodiac={levelMeta.zodiac} />
         )}
       </div>
 
@@ -1413,7 +1497,7 @@ export default function Gameplay() {
               animate={{ scale: [0, 1.3, 1], rotate: [0, 20, -10, 0] }}
               transition={{ duration: 0.7 }}
             >
-              🎉
+              ⭐
             </motion.div>
           </motion.div>
         )}

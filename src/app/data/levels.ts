@@ -7,6 +7,19 @@ export interface StoryBeat {
   text: string;
 }
 
+/** 黃道星座（教育向文案，占星娛樂用途） */
+export interface ZodiacInfo {
+  /** 中文名，例：牡羊座 */
+  nameZh: string;
+  /** Unicode 星座符號 */
+  glyph: string;
+  latin: string;
+  /** 一句寓意／學習重點 */
+  meaning: string;
+  /** 常見「太陽星座」對應的西曆約略區間（坊間習俗，跨年處仍以習俗寫法呈現） */
+  approxSunDates: string;
+}
+
 export interface LevelMeta {
   id: number;
   /** 所屬章節（大地圖分章用） */
@@ -20,6 +33,8 @@ export interface LevelMeta {
   story: StoryBeat;
   collectible: { emoji: string; name: string };
   target: { x: number; y: number };
+  /** 對應黃道星座（地圖與收藏標示） */
+  zodiac?: ZodiacInfo;
 }
 
 export {
@@ -28,7 +43,11 @@ export {
   getChapterForLevel,
   isChapterComplete,
   layoutPathForCount,
+  mapLayoutCoords,
+  constellationEdgesFor,
 } from './chapters';
+
+export type { ChapterDef, ConstellationGeometry } from './chapters';
 import { LEVELS_META } from './chapters';
 
 export function getLevelMeta(id: number): LevelMeta {

@@ -1,15 +1,21 @@
-import type { LevelMeta, LevelMode, LevelTheme } from './levels';
+import type { LevelMeta, LevelMode, LevelTheme, ZodiacInfo } from './levels';
+
+/** 單一星座的星象：節點 = 關卡位置，edges = 星圖連線（可多邊，不必只沿關卡順序） */
+export interface ConstellationGeometry {
+  stars: { x: number; y: number }[];
+  edges: [number, number][];
+}
 
 export interface ChapterDef {
   id: number;
   title: string;
   subtitle: string;
   mapEmoji: string;
-  /** 大地圖背景 gradient（與 themeBackground 一致） */
   mapTheme: LevelTheme;
-  /** 集滿本章全部關卡碎片後，可視為合成的終極收藏 */
   assembledReward: { emoji: string; name: string; description: string };
   levels: LevelMeta[];
+  /** 本星座專用星象（與 levels.length 一致，一顆主星 = 一關） */
+  constellation: ConstellationGeometry;
 }
 
 const TYPE_LABEL: Record<LevelMode, string> = {
@@ -19,178 +25,7 @@ const TYPE_LABEL: Record<LevelMode, string> = {
   memory: '記憶配對',
 };
 
-function mkLevel(args: {
-  id: number;
-  chapterId: number;
-  indexInChapter: number;
-  mode: LevelMode;
-  theme: LevelTheme;
-  icon: string;
-  collectible: { emoji: string; name: string };
-  storyTitle: string;
-  storyText: string;
-  target?: { x: number; y: number };
-}): LevelMeta {
-  return {
-    id: args.id,
-    chapterId: args.chapterId,
-    indexInChapter: args.indexInChapter,
-    icon: args.icon,
-    type: TYPE_LABEL[args.mode],
-    mode: args.mode,
-    theme: args.theme,
-    story: { title: args.storyTitle, text: args.storyText },
-    collectible: args.collectible,
-    target: args.target ?? { x: 0.5, y: 0.42 },
-  };
-}
-
-/** 第一章：8 關 — 天空／星空意象碎片 → 合成「星空警覺儀」 */
-const CH1_PARTS: { emoji: string; name: string }[] = [
-  { emoji: '⭐', name: '星屑碎片·一' },
-  { emoji: '🌙', name: '星屑碎片·二' },
-  { emoji: '☄️', name: '星屑碎片·三' },
-  { emoji: '✨', name: '星屑碎片·四' },
-  { emoji: '🔭', name: '星屑碎片·五' },
-  { emoji: '🛸', name: '星屑碎片·六' },
-  { emoji: '🌠', name: '星屑碎片·七' },
-  { emoji: '💫', name: '星屑碎片·八' },
-];
-
-const CH1_MODES: LevelMode[] = ['spot', 'jigsaw', 'order', 'jigsaw', 'memory', 'spot', 'jigsaw', 'spot'];
-const CH1_THEMES: LevelTheme[] = ['forest', 'ocean', 'space', 'castle', 'desert', 'ocean', 'space', 'finale'];
-
-/** 第二章：8 關 — 深海意象碎片 → 合成「海心羅盤」 */
-const CH2_PARTS: { emoji: string; name: string }[] = [
-  { emoji: '🐚', name: '浪核碎片·一' },
-  { emoji: '🔷', name: '浪核碎片·二' },
-  { emoji: '🫧', name: '浪核碎片·三' },
-  { emoji: '⚓', name: '浪核碎片·四' },
-  { emoji: '🐠', name: '浪核碎片·五' },
-  { emoji: '🦑', name: '浪核碎片·六' },
-  { emoji: '💠', name: '浪核碎片·七' },
-  { emoji: '🌊', name: '浪核碎片·八' },
-];
-
-const CH2_MODES: LevelMode[] = ['jigsaw', 'spot', 'memory', 'order', 'jigsaw', 'spot', 'jigsaw', 'memory'];
-const CH2_THEMES: LevelTheme[] = ['ocean', 'forest', 'desert', 'space', 'castle', 'ocean', 'finale', 'ocean'];
-
-/** 第三章：7 關 — 終幕試煉碎片 → 合成「專注冠冕」 */
-const CH3_PARTS: { emoji: string; name: string }[] = [
-  { emoji: '🔥', name: '試煉徽記·一' },
-  { emoji: '⚡', name: '試煉徽記·二' },
-  { emoji: '🛡️', name: '試煉徽記·三' },
-  { emoji: '👁️', name: '試煉徽記·四' },
-  { emoji: '🎯', name: '試煉徽記·五' },
-  { emoji: '💎', name: '試煉徽記·六' },
-  { emoji: '🏅', name: '試煉徽記·七' },
-];
-
-const CH3_MODES: LevelMode[] = ['spot', 'order', 'jigsaw', 'memory', 'spot', 'jigsaw', 'spot'];
-const CH3_THEMES: LevelTheme[] = ['finale', 'space', 'castle', 'desert', 'forest', 'ocean', 'finale'];
-
-function buildChapter(
-  chapterId: number,
-  startId: number,
-  chapterTitle: string,
-  parts: { emoji: string; name: string }[],
-  modes: LevelMode[],
-  themes: LevelTheme[],
-  flavor: 'sky' | 'sea' | 'finale',
-): LevelMeta[] {
-  return parts.map((collectible, i) => {
-    const indexInChapter = i + 1;
-    const spot = `${chapterTitle} · 第 ${indexInChapter} 站`;
-    let text = '';
-    if (flavor === 'sky') {
-      text =
-        '天空路線需要你盯緊每一個小差異與順序；這片碎片會記下你的警覺度。集滿本章碎片，就能合成星空警覺儀。';
-    } else if (flavor === 'sea') {
-      text =
-        '深海裡光影會騙眼睛：拼回去、記位置、找不同。每一片浪核碎片讓海心羅盤更完整。';
-    } else {
-      text =
-        '終幕試煉把專注拉到最高——每一枚徽記都是對毅力的提醒，全數到手即可迎接冠冕。';
-    }
-    return mkLevel({
-      id: startId + i,
-      chapterId,
-      indexInChapter,
-      mode: modes[i]!,
-      theme: themes[i]!,
-      icon: collectible.emoji,
-      collectible,
-      storyTitle: spot,
-      storyText: text,
-    });
-  });
-}
-
-const CH1_LEVELS = buildChapter(1, 1, '浮空星廊篇', CH1_PARTS, CH1_MODES, CH1_THEMES, 'sky');
-const CH2_LEVELS = buildChapter(2, CH1_LEVELS.length + 1, '珊瑚深海篇', CH2_PARTS, CH2_MODES, CH2_THEMES, 'sea');
-const CH3_LEVELS = buildChapter(
-  3,
-  CH1_LEVELS.length + CH2_LEVELS.length + 1,
-  '終幕冠冕篇',
-  CH3_PARTS,
-  CH3_MODES,
-  CH3_THEMES,
-  'finale',
-);
-
-export const LEVELS_META: LevelMeta[] = [...CH1_LEVELS, ...CH2_LEVELS, ...CH3_LEVELS];
-
-export const CHAPTERS: ChapterDef[] = [
-  {
-    id: 1,
-    title: '浮空星廊篇',
-    subtitle: '天空與星辰的警覺試煉',
-    mapEmoji: '🌌',
-    mapTheme: 'space',
-    assembledReward: {
-      emoji: '🌌',
-      name: '星空警覺儀',
-      description: '八枚星屑碎片拼合後浮現——提醒你抬頭看路，也要盯緊腳下細節。',
-    },
-    levels: CH1_LEVELS,
-  },
-  {
-    id: 2,
-    title: '珊瑚深海篇',
-    subtitle: '傾聽洋流與專注的深度訓練',
-    mapEmoji: '🔱',
-    mapTheme: 'ocean',
-    assembledReward: {
-      emoji: '🔱',
-      name: '海心羅盤',
-      description: '浪核碎片全數歸位後，羅盤會在混亂波光裡為你指出專注的方向。',
-    },
-    levels: CH2_LEVELS,
-  },
-  {
-    id: 3,
-    title: '終幕冠冕篇',
-    subtitle: '意志與收束的最終章',
-    mapEmoji: '🏆',
-    mapTheme: 'finale',
-    assembledReward: {
-      emoji: '🏆',
-      name: '專注冠冕',
-      description: '七枚試煉徽記齊聚，象徵你能長時間守護注意力直到最後一刻。',
-    },
-    levels: CH3_LEVELS,
-  },
-];
-
-export function getChapterForLevel(levelId: number): ChapterDef | undefined {
-  return CHAPTERS.find(c => c.levels.some(l => l.id === levelId));
-}
-
-export function isChapterComplete(chapter: ChapterDef, completedLevelIds: number[]): boolean {
-  return chapter.levels.every(l => completedLevelIds.includes(l.id));
-}
-
-/** 依關卡數量產生蜿蜒路徑座標（百分比） */
+/** 依關卡數量產生蜿蜒路徑（後備，幾何缺失時） */
 export function layoutPathForCount(count: number): { x: number; y: number }[] {
   if (count <= 0) return [];
   const out: { x: number; y: number }[] = [];
@@ -198,9 +33,350 @@ export function layoutPathForCount(count: number): { x: number; y: number }[] {
     const t = count === 1 ? 0.5 : i / (count - 1);
     const x = 10 + t * 78;
     const wave = Math.sin(t * Math.PI) * 48;
-    /** 路徑整體偏下，避免與上方章節資訊卡重疊 */
     const y = 84 - wave * 0.78;
     out.push({ x, y: Math.min(90, Math.max(28, y)) });
   }
   return out;
+}
+
+export function mapLayoutCoords(chapter: ChapterDef): { x: number; y: number }[] {
+  const s = chapter.constellation?.stars;
+  if (s && s.length === chapter.levels.length) return s;
+  return layoutPathForCount(chapter.levels.length);
+}
+
+export function constellationEdgesFor(chapter: ChapterDef): [number, number][] {
+  return chapter.constellation?.edges ?? [];
+}
+
+const ZODIAC12: ZodiacInfo[] = [
+  { nameZh: '牡羊座', glyph: '♈', latin: 'Aries', meaning: '開創、勇氣', approxSunDates: '約 3/21–4/19' },
+  { nameZh: '金牛座', glyph: '♉', latin: 'Taurus', meaning: '穩健、耐性', approxSunDates: '約 4/20–5/20' },
+  { nameZh: '雙子座', glyph: '♊', latin: 'Gemini', meaning: '好奇、彈性', approxSunDates: '約 5/21–6/21' },
+  { nameZh: '巨蟹座', glyph: '♋', latin: 'Cancer', meaning: '守護、直覺', approxSunDates: '約 6/22–7/22' },
+  { nameZh: '獅子座', glyph: '♌', latin: 'Leo', meaning: '自信、創造', approxSunDates: '約 7/23–8/22' },
+  { nameZh: '處女座', glyph: '♍', latin: 'Virgo', meaning: '細緻、條理', approxSunDates: '約 8/23–9/22' },
+  { nameZh: '天秤座', glyph: '♎', latin: 'Libra', meaning: '平衡、合作', approxSunDates: '約 9/23–10/23' },
+  { nameZh: '天蠍座', glyph: '♏', latin: 'Scorpius', meaning: '專注、探究', approxSunDates: '約 10/24–11/22' },
+  { nameZh: '射手座', glyph: '♐', latin: 'Sagittarius', meaning: '探索、冒險', approxSunDates: '約 11/23–12/21' },
+  { nameZh: '摩羯座', glyph: '♑', latin: 'Capricornus', meaning: '紀律、爬坡', approxSunDates: '約 12/22–1/19' },
+  { nameZh: '水瓶座', glyph: '♒', latin: 'Aquarius', meaning: '創新、獨立', approxSunDates: '約 1/20–2/18' },
+  { nameZh: '雙魚座', glyph: '♓', latin: 'Pisces', meaning: '同理、想像', approxSunDates: '約 2/19–3/20' },
+];
+
+/** 各星座星象圖：六顆主星 + 典型連線（簡化示意，非天體測量尺度） */
+const ZODIAC_GEOM: ConstellationGeometry[] = [
+  {
+    stars: [
+      { x: 72, y: 50 },
+      { x: 62, y: 54 },
+      { x: 52, y: 58 },
+      { x: 44, y: 54 },
+      { x: 36, y: 48 },
+      { x: 28, y: 44 },
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 5],
+      [1, 3],
+    ],
+  },
+  {
+    stars: [
+      { x: 50, y: 38 },
+      { x: 62, y: 46 },
+      { x: 72, y: 56 },
+      { x: 62, y: 66 },
+      { x: 48, y: 68 },
+      { x: 38, y: 56 },
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 5],
+      [5, 0],
+      [0, 2],
+    ],
+  },
+  {
+    stars: [
+      { x: 38, y: 42 },
+      { x: 38, y: 54 },
+      { x: 38, y: 66 },
+      { x: 74, y: 42 },
+      { x: 74, y: 54 },
+      { x: 74, y: 66 },
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [3, 4],
+      [4, 5],
+      [0, 3],
+      [1, 4],
+      [2, 5],
+    ],
+  },
+  {
+    stars: [
+      { x: 48, y: 46 },
+      { x: 62, y: 44 },
+      { x: 70, y: 54 },
+      { x: 62, y: 66 },
+      { x: 46, y: 68 },
+      { x: 38, y: 56 },
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 5],
+      [5, 0],
+    ],
+  },
+  {
+    stars: [
+      { x: 68, y: 42 },
+      { x: 58, y: 46 },
+      { x: 48, y: 52 },
+      { x: 42, y: 58 },
+      { x: 52, y: 66 },
+      { x: 62, y: 62 },
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 5],
+      [2, 5],
+    ],
+  },
+  {
+    stars: [
+      { x: 36, y: 44 },
+      { x: 48, y: 48 },
+      { x: 58, y: 54 },
+      { x: 62, y: 66 },
+      { x: 52, y: 72 },
+      { x: 42, y: 62 },
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 5],
+      [5, 0],
+    ],
+  },
+  {
+    stars: [
+      { x: 42, y: 48 },
+      { x: 54, y: 42 },
+      { x: 66, y: 48 },
+      { x: 54, y: 54 },
+      { x: 44, y: 66 },
+      { x: 62, y: 66 },
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [1, 3],
+      [3, 4],
+      [3, 5],
+    ],
+  },
+  {
+    stars: [
+      { x: 28, y: 70 },
+      { x: 40, y: 60 },
+      { x: 52, y: 50 },
+      { x: 64, y: 44 },
+      { x: 76, y: 50 },
+      { x: 86, y: 60 },
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 5],
+    ],
+  },
+  {
+    stars: [
+      { x: 40, y: 58 },
+      { x: 52, y: 50 },
+      { x: 66, y: 44 },
+      { x: 76, y: 52 },
+      { x: 64, y: 62 },
+      { x: 48, y: 66 },
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 5],
+      [5, 0],
+      [2, 4],
+    ],
+  },
+  {
+    stars: [
+      { x: 58, y: 36 },
+      { x: 72, y: 46 },
+      { x: 70, y: 60 },
+      { x: 54, y: 68 },
+      { x: 38, y: 58 },
+      { x: 44, y: 44 },
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 5],
+      [5, 0],
+    ],
+  },
+  {
+    stars: [
+      { x: 34, y: 44 },
+      { x: 50, y: 40 },
+      { x: 68, y: 46 },
+      { x: 74, y: 58 },
+      { x: 58, y: 66 },
+      { x: 40, y: 60 },
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 5],
+      [5, 0],
+    ],
+  },
+  {
+    stars: [
+      { x: 32, y: 50 },
+      { x: 46, y: 56 },
+      { x: 58, y: 60 },
+      { x: 72, y: 52 },
+      { x: 64, y: 44 },
+      { x: 48, y: 40 },
+    ],
+    edges: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 5],
+      [5, 0],
+    ],
+  },
+];
+
+function astronomyBlurb(sign: ZodiacInfo, starOrdinal: number, totalStars: number): string {
+  return `${sign.nameZh}示意星網｜節點 ${starOrdinal}/${totalStars}`;
+}
+
+function mkLevel(args: {
+  id: number;
+  chapterId: number;
+  indexInChapter: number;
+  mode: LevelMode;
+  theme: LevelTheme;
+  collectible: { emoji: string; name: string };
+  storyTitle: string;
+  storyText: string;
+  zodiacIndex: number;
+  target?: { x: number; y: number };
+}): LevelMeta {
+  const z = ZODIAC12[args.zodiacIndex]!;
+  return {
+    id: args.id,
+    chapterId: args.chapterId,
+    indexInChapter: args.indexInChapter,
+    icon: z.glyph,
+    type: TYPE_LABEL[args.mode],
+    mode: args.mode,
+    theme: args.theme,
+    story: { title: args.storyTitle, text: args.storyText },
+    collectible: args.collectible,
+    zodiac: z,
+    target: args.target ?? { x: 0.5, y: 0.42 },
+  };
+}
+
+function buildOneZodiacChapter(chapterIndex: number, startGlobalId: number): { chapter: ChapterDef; nextId: number } {
+  const zodiacIndex = chapterIndex - 1;
+  const sign = ZODIAC12[zodiacIndex]!;
+  const geo = ZODIAC_GEOM[zodiacIndex]!;
+  const n = geo.stars.length;
+  const modes: LevelMode[] = ['spot', 'jigsaw', 'order', 'memory', 'spot', 'jigsaw'];
+  const themes: LevelTheme[] = ['space', 'castle', 'ocean', 'finale', 'desert', 'forest'];
+
+  const levels = geo.stars.map((_, si) => {
+    const i = si + 1;
+    return mkLevel({
+      id: startGlobalId + si,
+      chapterId: chapterIndex,
+      indexInChapter: i,
+      mode: modes[si % modes.length]!,
+      theme: themes[si % themes.length]!,
+      collectible: {
+        emoji: '✦',
+        name: `主星${i}`,
+      },
+      storyTitle: `${sign.glyph} ${sign.nameZh}　${i}/${n}`,
+      storyText: astronomyBlurb(sign, i, n),
+      zodiacIndex,
+    });
+  });
+
+  const chapter: ChapterDef = {
+    id: chapterIndex,
+    title: `${sign.glyph} ${sign.nameZh}`,
+    subtitle: `${n} 個節點`,
+    mapEmoji: sign.glyph,
+    mapTheme: zodiacIndex === 11 ? 'finale' : 'space',
+    assembledReward: {
+      emoji: sign.glyph,
+      name: `${sign.nameZh}典藏`,
+      description: `${n}/${n} 主星達成`,
+    },
+    levels,
+    constellation: geo,
+  };
+
+  return { chapter, nextId: startGlobalId + n };
+}
+
+let gid = 1;
+export const CHAPTERS: ChapterDef[] = [];
+
+for (let c = 1; c <= 12; c++) {
+  const built = buildOneZodiacChapter(c, gid);
+  gid = built.nextId;
+  CHAPTERS.push(built.chapter);
+}
+
+export const LEVELS_META: LevelMeta[] = CHAPTERS.flatMap(c => c.levels);
+
+export function getChapterForLevel(levelId: number): ChapterDef | undefined {
+  return CHAPTERS.find(c => c.levels.some(l => l.id === levelId));
+}
+
+export function isChapterComplete(chapter: ChapterDef, completedLevelIds: number[]): boolean {
+  return chapter.levels.every(l => completedLevelIds.includes(l.id));
 }

@@ -2,6 +2,10 @@
 
 This is a code bundle for Authentication and Dashboard Design. The original project is available at https://www.figma.com/design/MK7TPCtbWcBdShlMFrEysk/Authentication-and-Dashboard-Design.
 
+## Architecture
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for routing, data model, and QuestMap／圖鑑（含旋轉地球）架構圖（Mermaid）。
+
 ## Running the code
 
 Run `npm i` to install the dependencies.

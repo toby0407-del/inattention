@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { AlertCircle, Clock, Target, Volume2 } from 'lucide-react';
 import { LEVELS_META } from '../data/levels';
 
@@ -47,95 +47,50 @@ function HeatmapCanvas({
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
 
-      // Background game scene
-      ctx.fillStyle = '#1a2744';
+      // 簡化背景（不置景太陽／雲／樹），視覺聚焦在「單一專注目標圓」
+      const bgGrad = ctx.createRadialGradient(cssW / 2, cssH / 2, 0, cssW / 2, cssH / 2, Math.max(cssW, cssH) * 0.65);
+      bgGrad.addColorStop(0, '#172554');
+      bgGrad.addColorStop(1, '#0f172a');
+      ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, cssW, cssH);
-
-      // Sky gradient
-      const skyGrad = ctx.createLinearGradient(0, 0, 0, cssH * 0.6);
-      skyGrad.addColorStop(0, '#0d2137');
-      skyGrad.addColorStop(1, '#1a3d5c');
-      ctx.fillStyle = skyGrad;
-      ctx.fillRect(0, 0, cssW, cssH * 0.65);
-
-      // Ground
-      ctx.fillStyle = '#1e4d1a';
-      ctx.beginPath();
-      ctx.ellipse(cssW / 2, cssH * 0.75, cssW * 0.6, cssH * 0.22, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Sun
-      ctx.fillStyle = '#ffd43b';
-      ctx.globalAlpha = 0.85;
-      ctx.beginPath();
-      ctx.arc(cssW * 0.5, cssH * 0.38, 32, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalAlpha = 1;
-
-      // Clouds
-      ctx.fillStyle = 'rgba(255,255,255,0.25)';
-      ctx.beginPath();
-      ctx.arc(cssW * 0.2, cssH * 0.22, 18, 0, Math.PI * 2);
-      ctx.arc(cssW * 0.25, cssH * 0.2, 22, 0, Math.PI * 2);
-      ctx.arc(cssW * 0.3, cssH * 0.22, 16, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.arc(cssW * 0.72, cssH * 0.15, 14, 0, Math.PI * 2);
-      ctx.arc(cssW * 0.76, cssH * 0.13, 18, 0, Math.PI * 2);
-      ctx.arc(cssW * 0.8, cssH * 0.15, 12, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Trees
-      const drawTree = (x: number, y: number, s: number) => {
-        ctx.fillStyle = '#2d5c28';
-        ctx.beginPath();
-        ctx.moveTo(x, y - s * 0.8);
-        ctx.lineTo(x - s * 0.5, y);
-        ctx.lineTo(x + s * 0.5, y);
-        ctx.closePath();
-        ctx.fill();
-        ctx.fillStyle = '#4a3728';
-        ctx.fillRect(x - s * 0.08, y, s * 0.16, s * 0.3);
-      };
-      drawTree(cssW * 0.15, cssH * 0.6, 45);
-      drawTree(cssW * 0.82, cssH * 0.62, 38);
-      drawTree(cssW * 0.88, cssH * 0.58, 52);
-
-      // ==== TRAINING EFFECTIVENESS HEATMAP (mock) ====
-      // Visualizes "distance to 100 focus goal".
-      const drawHeat = (x: number, y: number, r: number, color: string, alpha: number) => {
-        const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
-        grad.addColorStop(0, color.replace(')', `, ${alpha})`).replace('rgb', 'rgba'));
-        grad.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(x, y, r, 0, Math.PI * 2);
-        ctx.fill();
-      };
 
       const tx = cssW * target.x;
       const ty = cssH * target.y;
 
       const gap = Math.max(0, Math.min(100, focusGap));
-      const severity = gap / 100; // 0..1
+      const severity = gap / 100; // 0 = 離 100 很近，1 = 差很多
 
-      // Near-goal = stronger green, weaker red; Far from goal = opposite.
-      const greenA = 0.5 * (1 - severity) + 0.12;
-      const yellowA = 0.22 + 0.25 * severity;
-      const redA = 0.12 + 0.55 * severity;
+      /** 光圈半徑：在以較小畫布呈現時，仍盡量佔滿可視區，減少周圍深藍「空地」 */
+      const shortest = Math.min(cssW, cssH);
+      const reach = shortest * (0.52 + severity * 0.14);
+      const cap = Math.hypot(cssW, cssH) * 0.58;
+      const R = Math.min(reach, cap);
 
-      // Core (goal area)
-      drawHeat(tx, ty, 90, 'rgb(0,255,100)', greenA);
-      // Mild gap
-      drawHeat(tx - cssW * 0.16, ty - cssH * 0.10, 60, 'rgb(255,220,0)', yellowA);
-      drawHeat(tx + cssW * 0.15, ty - cssH * 0.12, 50, 'rgb(255,200,0)', yellowA * 0.9);
+      const g = ctx.createRadialGradient(tx, ty, 0, tx, ty, R);
 
-      // Larger gap spreads red "drift" areas
-      const spread = 0.18 + 0.25 * severity;
-      drawHeat(cssW * (0.08 + spread * 0.35), cssH * (0.86 - spread * 0.08), 46 + 30 * severity, 'rgb(255,30,0)', redA);
-      drawHeat(cssW * (0.90 - spread * 0.22), cssH * (0.86 - spread * 0.05), 42 + 26 * severity, 'rgb(255,50,0)', redA * 0.9);
-      drawHeat(tx + cssW * (0.18 + spread), ty + cssH * (0.12 + spread * 0.6), 34 + 28 * severity, 'rgb(255,80,0)', redA * 0.85);
+      /** 與圖例對齊：綠／琥珀／紅分段內插，飽和度拉高，避免「糊成一片」 */
+      const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+      const lerpRgb = (a: readonly [number, number, number], b: readonly [number, number, number], t: number) =>
+        [Math.round(lerp(a[0], b[0], t)), Math.round(lerp(a[1], b[1], t)), Math.round(lerp(a[2], b[2], t))] as const;
+      const green = [16, 220, 130] as const; // 偏亮綠
+      const amber = [250, 190, 30] as const; // 明黃琥珀
+      const red = [250, 55, 75] as const; // 亮紅
+      const [cr, cg, cb] =
+        severity <= 0.5 ? lerpRgb(green, amber, severity / 0.5) : lerpRgb(amber, red, (severity - 0.5) / 0.5);
+
+      const centerA = 0.78 - severity * 0.12;
+      const midA = 0.42 - severity * 0.08;
+      const edgeA = 0.18 - severity * 0.06;
+      g.addColorStop(0, `rgba(${cr},${cg},${cb},${Math.max(0.55, centerA)})`);
+      g.addColorStop(0.32, `rgba(${cr},${cg},${cb},${Math.max(0.28, midA)})`);
+      g.addColorStop(0.62, `rgba(${cr},${cg},${cb},${Math.max(0.1, edgeA)})`);
+      g.addColorStop(0.88, `rgba(${cr},${cg},${cb},${Math.max(0.04, edgeA * 0.45)})`);
+      g.addColorStop(1, 'rgba(15,23,42,0)');
+
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(tx, ty, R, 0, Math.PI * 2);
+      ctx.fill();
 
       // Target marker
       ctx.save();
@@ -163,14 +118,14 @@ function HeatmapCanvas({
       ctx.rect(8, 8, 118, 72);
       ctx.fill();
       const legendItems = [
-        { color: '#00ff64', label: '接近 100' },
-        { color: '#ffd700', label: '中等差距' },
-        { color: '#ff1e00', label: '差距較大' },
+        { color: '#10dc82', label: '接近 100' },
+        { color: '#f5be1e', label: '中等差距' },
+        { color: '#fa374b', label: '差距較大' },
       ];
       legendItems.forEach((item, i) => {
         ctx.fillStyle = item.color;
         ctx.beginPath();
-        ctx.arc(20, 22 + i * 22, 5, 0, Math.PI * 2);
+        ctx.arc(20, 22 + i * 22, 6, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = 'white';
         ctx.font = '11px Inter, sans-serif';
@@ -192,7 +147,7 @@ function HeatmapCanvas({
     <canvas
       ref={canvasRef}
       className="w-full rounded-2xl"
-      style={{ display: 'block', height: 360 }}
+      style={{ display: 'block', height: 260 }}
     />
   );
 }
@@ -202,8 +157,17 @@ export default function Analytics() {
   const [levelId, setLevelId] = useState<number>(1);
   const level = LEVELS_META.find(l => l.id === levelId) ?? LEVELS_META[0];
   const focusGoal = 100;
+  /** 示範用估算分數：隨區間／關卡略有變化 */
   const mockFocusScore = Math.max(55, Math.min(98, 92 - levelId * 4 + (dateRange === 'today' ? 2 : dateRange === 'month' ? -3 : 0)));
+  /** 平均分數占比圖沿用同一數值，視覺上即「離滿分差多少」*/
+  const mockAverageScore = mockFocusScore;
+  const remainderToFull = Math.max(0, focusGoal - mockAverageScore);
   const focusGap = Math.max(0, focusGoal - mockFocusScore);
+
+  const scorePieData = [
+    { name: '平均得分', value: mockAverageScore, fill: '#0d9488' },
+    { name: '距滿分', value: remainderToFull, fill: '#e2e8f0' },
+  ];
 
   const metrics = [
     { icon: Clock, label: '基準線對比', value: '+15%', desc: '相較上週同期', positive: true },
@@ -248,10 +212,10 @@ export default function Analytics() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <div style={{ fontWeight: 700, fontSize: '16px', color: '#1e293b', marginBottom: '4px' }}>
-              訓練成效熱力圖（距離 100）
+              訓練成效：熱力圖＋平均分數占比
             </div>
-            <p style={{ fontWeight: 500, fontSize: '12px', color: '#94a3b8', marginBottom: '16px' }}>
-              顯示距離「100 專注目標」還差多少（越綠越接近，越紅差距越大）
+            <p style={{ fontWeight: 500, fontSize: '12px', color: '#94a3b8', marginBottom: '16px', lineHeight: 1.5 }}>
+              左側準星對應關卡專注目標（離滿分差多少）；右側為以 100 分計的<strong className="text-slate-600">平均分數比例</strong>（示範數據）。
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -271,7 +235,7 @@ export default function Analytics() {
             </select>
           </div>
         </div>
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-4">
           <div style={{ fontWeight: 800, fontSize: '13px', color: '#334155' }}>
             目前估算專注分數：{mockFocusScore} / 100
           </div>
@@ -279,7 +243,74 @@ export default function Analytics() {
             差距：{focusGap}
           </div>
         </div>
-        <HeatmapCanvas target={level.target} focusGap={focusGap} />
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
+          <div>
+            <div style={{ fontWeight: 800, fontSize: '13px', color: '#475569', marginBottom: '10px' }}>
+              專注目標熱力（距離 100）
+            </div>
+            <div className="flex justify-center">
+              <div className="w-full max-w-[380px] sm:max-w-[420px]">
+                <HeatmapCanvas target={level.target} focusGap={focusGap} />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col min-h-[260px]">
+            <div style={{ fontWeight: 800, fontSize: '13px', color: '#475569', marginBottom: '4px' }}>
+              平均分數占比
+            </div>
+            <p style={{ fontWeight: 500, fontSize: '12px', color: '#94a3b8', marginBottom: '8px', lineHeight: 1.45 }}>
+              以 100 分為滿分，示範顯示目前估算<strong className="text-slate-600">平均得分</strong>佔比（綠＝已得、灰＝尚未滿分）。
+            </p>
+            <div className="relative flex-1 w-full min-h-[220px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+                  <Pie
+                    data={scorePieData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="48%"
+                    innerRadius={68}
+                    outerRadius={92}
+                    paddingAngle={2}
+                    cornerRadius={6}
+                    strokeWidth={2}
+                    stroke="#ffffff"
+                  >
+                    {scorePieData.map((entry, i) => (
+                      <Cell key={i} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number) => [`${value} 分`, '']}
+                    contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontWeight: 700 }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div
+                className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
+                style={{ paddingBottom: '4%' }}
+              >
+                <span style={{ fontWeight: 900, fontSize: '34px', color: '#0f172a', lineHeight: 1 }}>{mockAverageScore}</span>
+                <span style={{ fontWeight: 700, fontSize: '11px', color: '#64748b', letterSpacing: '0.08em', marginTop: 4 }}>
+                  平均得分 · /100
+                </span>
+              </div>
+            </div>
+            <div className="flex justify-center gap-6 mt-1 flex-wrap" style={{ fontWeight: 700, fontSize: '12px' }}>
+              <span className="inline-flex items-center gap-2 text-slate-600">
+                <span className="inline-block w-3 h-3 rounded-full shrink-0" style={{ background: '#0d9488' }} />
+                已得 {mockAverageScore} 分（{mockAverageScore}%）
+              </span>
+              <span className="inline-flex items-center gap-2 text-slate-500">
+                <span className="inline-block w-3 h-3 rounded-full shrink-0 bg-slate-200 border border-slate-300" />
+                尚差 {remainderToFull} 分
+              </span>
+            </div>
+          </div>
+        </div>
       </motion.div>
 
       {/* Metrics + Chart */}

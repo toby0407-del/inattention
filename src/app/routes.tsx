@@ -1,4 +1,9 @@
 import { createBrowserRouter, Outlet } from 'react-router';
+
+/** 只做子路由 Outlet，對應 /child/* */
+function ChildLayout() {
+  return <Outlet />;
+}
 import { AppProvider } from './context/AppContext';
 import SplashScreen from './pages/SplashScreen';
 import ParentLayout from './layouts/ParentLayout';
@@ -35,10 +40,16 @@ export const router = createBrowserRouter([
           { path: 'dev', Component: Developer },
         ],
       },
-      { path: 'child/lobby', Component: QuestMap },
-      { path: 'child/calibration', Component: Calibration },
-      { path: 'child/play', Component: Gameplay },
-      { path: 'child/reward', Component: Reward },
+      {
+        path: 'child',
+        Component: ChildLayout,
+        children: [
+          { path: 'lobby', Component: QuestMap },
+          { path: 'calibration', Component: Calibration },
+          { path: 'play', Component: Gameplay },
+          { path: 'reward', Component: Reward },
+        ],
+      },
     ],
   },
 ]);

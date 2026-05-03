@@ -6,13 +6,32 @@ import {
   CHAPTERS,
   themeBackground,
   getChapterForLevel,
-  layoutPathForCount,
+  mapLayoutCoords,
+  constellationEdgesFor,
   isChapterComplete,
   type LevelMeta,
 } from '../data/levels';
 import { ensureBlueBgm } from '../utils/blueBgm';
+import { ChevronLeft } from 'lucide-react';
+import ConstellationGlobe from '../components/ConstellationGlobe';
 
 type MapLevel = LevelMeta & { x: number; y: number; stars: number };
+
+/** 將星點％座標群平移到畫布正中（bounding box 中心對齊 50%,50%，並略為收邊避免裁切） */
+function centerPercentCoords(points: { x: number; y: number }[]): { x: number; y: number }[] {
+  if (points.length === 0) return points;
+  const xs = points.map(p => p.x);
+  const ys = points.map(p => p.y);
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+  const dx = 50 - cx;
+  const dy = 50 - cy;
+  const clamp = (v: number) => Math.min(92, Math.max(8, v));
+  return points.map(p => ({
+    x: clamp(p.x + dx),
+    y: clamp(p.y + dy),
+  }));
+}
 
 function StarCount({ count }: { count: number }) {
   return (
@@ -32,6 +51,7 @@ export default function QuestMap() {
   const [chapterIndex, setChapterIndex] = useState(0);
   const [showStickerBook, setShowStickerBook] = useState(false);
   const [selectedLevel, setSelectedLevel] = useState<MapLevel | null>(null);
+  const [showChapterTip, setShowChapterTip] = useState(false);
 
   useEffect(() => {
     ensureBlueBgm();
@@ -49,13 +69,32 @@ export default function QuestMap() {
   const chapterComplete = isChapterComplete(chapter, completedLevels);
 
   const LEVELS: MapLevel[] = useMemo(() => {
-    const coords = layoutPathForCount(chapter.levels.length);
+    const raw = mapLayoutCoords(chapter);
+    const base = chapter.levels.map((l, i) => ({
+      x: raw[i]?.x ?? 50,
+      y: raw[i]?.y ?? 50,
+    }));
+    const centered = centerPercentCoords(base);
     return chapter.levels.map((l, i) => ({
       ...l,
-      x: coords[i]?.x ?? 50,
-      y: coords[i]?.y ?? 50,
+      x: centered[i]?.x ?? 50,
+      y: centered[i]?.y ?? 50,
       stars: 3,
     }));
+  }, [chapter]);
+
+  /** 星象示意連線（去重）；與「主線關卡順序」無關—只為畫出星座形狀 */
+  const asterismEdges = useMemo(() => {
+    const raw = constellationEdgesFor(chapter);
+    const seen = new Set<string>();
+    return raw.filter(([a, b]) => {
+      const i = Math.min(a, b);
+      const j = Math.max(a, b);
+      const key = `${i}-${j}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }, [chapter]);
 
   const bg = useMemo(() => {
@@ -77,88 +116,102 @@ export default function QuestMap() {
   const canPrevChapter = chapterIndex > 0;
   const canNextChapter = chapterIndex < CHAPTERS.length - 1;
 
+  const chapterDoneCount = chapter.levels.filter(
+    l => collectedLevelIds.includes(l.id) || completedLevels.includes(l.id),
+  ).length;
+
+  const headerZodiac = chapter.levels[0]?.zodiac;
+  const constellationLabel = headerZodiac ? `${headerZodiac.glyph} ${headerZodiac.nameZh}` : chapter.title;
+
   return (
     <div
       className="fixed inset-0 overflow-hidden"
       style={{ fontFamily: 'Nunito, sans-serif', background: bg }}
     >
-      {/* 章節標題與資訊卡（箭頭改到卡片下方，避免與文字左右重疊） */}
-      <div className="absolute left-0 right-0 z-20 flex flex-col items-center px-4 pt-[5.25rem] pb-2 max-w-lg mx-auto w-full gap-3">
-        <div className="text-center w-full px-1">
-          <div className="text-white/95 mb-1" style={{ fontWeight: 900, fontSize: '16px', textShadow: '0 2px 10px rgba(0,0,0,0.55)' }}>
-            {chapter.mapEmoji} 章節地圖 · 共 {chapter.levels.length} 關
-          </div>
-          <div className="text-white leading-snug" style={{ fontWeight: 900, fontSize: '22px', textShadow: '0 2px 12px rgba(0,0,0,0.45)' }}>
-            第 {chapter.id} 章 · {chapter.title}
-          </div>
-          <div className="text-white/85 mt-1" style={{ fontWeight: 700, fontSize: '15px', lineHeight: 1.35 }}>
-            {chapter.subtitle}
-          </div>
-        </div>
-
-        <div
-          className="rounded-3xl px-5 py-4 w-full"
-          style={{ background: 'rgba(255,255,255,0.14)', border: '1px solid rgba(255,255,255,0.2)', backdropFilter: 'blur(12px)' }}
-        >
-          <div className="flex items-start gap-4">
-            <div className="text-5xl shrink-0">{chapter.assembledReward.emoji}</div>
-            <div className="flex-1 text-left min-w-0">
-              <div className="text-white" style={{ fontWeight: 900, fontSize: '15px', textShadow: '0 2px 10px rgba(0,0,0,0.35)' }}>
-                本章終極收藏（集滿碎片後合成）
-              </div>
-              <div className="text-white mt-1" style={{ fontWeight: 900, fontSize: '17px' }}>
-                {chapter.assembledReward.name}
-              </div>
-              <div className="text-white/75 mt-2" style={{ fontWeight: 600, fontSize: '14px', lineHeight: 1.5 }}>
-                {chapter.assembledReward.description}
-              </div>
-              <div className="text-yellow-100 mt-3" style={{ fontWeight: 800, fontSize: '14px' }}>
-                進度：本章碎片 {chapter.levels.filter(l => collectedLevelIds.includes(l.id) || completedLevels.includes(l.id)).length}/{chapter.levels.length}
-                {chapterComplete ? ' · 已可視為合成完成 ✓' : ''}
-              </div>
+      {/* 黃道星區：星座名＋日期框（章節切換鈕在螢幕左下／右下） */}
+      <div className="absolute left-0 right-0 z-20 flex flex-col items-center px-4 pt-[5.25rem] pb-2 max-w-lg mx-auto w-full gap-2.5 pointer-events-none">
+        <div className="flex items-start justify-center gap-2 w-full px-1 pointer-events-auto">
+          <div
+            className="flex-1 min-w-0 rounded-2xl px-3.5 py-2.5 text-center"
+            style={{
+              background: 'rgba(15,23,42,0.45)',
+              backdropFilter: 'blur(12px)',
+              border: '2px solid rgba(255,255,255,0.42)',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.12)',
+            }}
+          >
+            <div
+              className="text-white leading-snug"
+              style={{ fontWeight: 900, fontSize: '20px', textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}
+            >
+              {constellationLabel}
             </div>
+            {headerZodiac?.approxSunDates ? (
+              <div
+                className="mt-1 text-amber-100/95 tabular-nums"
+                style={{ fontWeight: 800, fontSize: '14px', letterSpacing: '0.02em', textShadow: '0 1px 8px rgba(0,0,0,0.4)' }}
+              >
+                太陽星座約 {headerZodiac.approxSunDates.replace(/^約\s*/, '')}
+              </div>
+            ) : null}
           </div>
+          <button
+            type="button"
+            className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-white transition-transform active:scale-90"
+            style={{
+              fontWeight: 900,
+              fontSize: '17px',
+              background: 'rgba(255,255,255,0.2)',
+              border: '2px solid rgba(255,255,255,0.45)',
+              boxShadow: '0 2px 12px rgba(0,0,0,0.25)',
+            }}
+            title="查看星座寓意與星圖說明"
+            aria-label="開啟星座寓意與本頁說明"
+            onClick={() => setShowChapterTip(true)}
+          >
+            ?
+          </button>
         </div>
-
-        <div className="flex items-center justify-center gap-14 w-full px-2 pb-1">
-          <button
-            type="button"
-            disabled={!canPrevChapter}
-            onClick={() => canPrevChapter && setChapterIndex(chapterIndex - 1)}
-            className="w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
-            style={{
-              background: 'rgba(255,255,255,0.18)',
-              border: '2px solid rgba(255,255,255,0.3)',
-              fontSize: '26px',
-              fontWeight: 900,
-            }}
-            aria-label="上一章"
-          >
-            ◀
-          </button>
-          <div className="text-white/75 text-center" style={{ fontWeight: 800, fontSize: '13px', maxWidth: '7rem', lineHeight: 1.35 }}>
-            左右切換章節
-          </div>
-          <button
-            type="button"
-            disabled={!canNextChapter}
-            onClick={() => canNextChapter && setChapterIndex(chapterIndex + 1)}
-            className="w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
-            style={{
-              background: 'rgba(255,255,255,0.18)',
-              border: '2px solid rgba(255,255,255,0.3)',
-              fontSize: '26px',
-              fontWeight: 900,
-            }}
-            aria-label="下一章"
-          >
-            ▶
-          </button>
+        <div className="text-white/80 text-center w-full pointer-events-none px-1" style={{ fontWeight: 700, fontSize: '13px', lineHeight: 1.35 }}>
+          {chapter.subtitle}
         </div>
       </div>
 
-      {/* 前景裝飾：依章節略調，避免搶眼蓋字 */}
-      {Array.from({ length: chapterIndex === 1 ? 18 : 28 }).map((_, i) => (
+      <button
+        type="button"
+        disabled={!canPrevChapter}
+        onClick={() => canPrevChapter && setChapterIndex(chapterIndex - 1)}
+        className="absolute z-40 left-4 bottom-6 w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed pointer-events-auto"
+        style={{
+          background: 'rgba(255,255,255,0.18)',
+          border: '2px solid rgba(255,255,255,0.3)',
+          fontSize: '26px',
+          fontWeight: 900,
+        }}
+        aria-label="上一星座星圖"
+        title="上一星座星圖"
+      >
+        ◀
+      </button>
+      <button
+        type="button"
+        disabled={!canNextChapter}
+        onClick={() => canNextChapter && setChapterIndex(chapterIndex + 1)}
+        className="absolute z-40 right-4 bottom-6 w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed pointer-events-auto"
+        style={{
+          background: 'rgba(255,255,255,0.18)',
+          border: '2px solid rgba(255,255,255,0.3)',
+          fontSize: '26px',
+          fontWeight: 900,
+        }}
+        aria-label="下一星座星圖"
+        title="下一星座星圖"
+      >
+        ▶
+      </button>
+
+      {/* 前景裝飾：略調強度 */}
+      {Array.from({ length: chapter.id >= 11 ? 36 : chapter.id <= 4 ? 24 : 30 }).map((_, i) => (
         <motion.div
           key={`star-${i}`}
           className="absolute rounded-full bg-white"
@@ -166,7 +219,7 @@ export default function QuestMap() {
             width: Math.random() * 3 + 1,
             height: Math.random() * 3 + 1,
             left: `${Math.random() * 100}%`,
-            top: `${Math.random() * (chapterIndex === 1 ? 40 : 55)}%`,
+            top: `${Math.random() * (chapter.mapTheme === 'ocean' ? 40 : 55)}%`,
             opacity: Math.random() * 0.6 + 0.15,
           }}
           animate={{ opacity: [0.2, 0.75, 0.2] }}
@@ -174,17 +227,17 @@ export default function QuestMap() {
         />
       ))}
 
-      {chapterIndex === 0 && (
-        <div className="absolute top-12 right-16 w-14 h-14 rounded-full z-[6]" style={{ background: '#fef3c7', boxShadow: '0 0 30px rgba(254,243,199,0.5)' }} />
+      {chapter.id <= 4 && (
+        <div className="absolute top-[7.25rem] right-[5.75rem] w-10 h-10 rounded-full z-[6] opacity-80" style={{ background: '#fef3c7', boxShadow: '0 0 22px rgba(254,243,199,0.45)' }} />
       )}
-      {chapterIndex === 1 && (
-        <div className="absolute top-14 right-12 text-6xl opacity-30 z-[6] select-none">🌊</div>
+      {chapter.id >= 5 && chapter.id <= 8 && (
+        <div className="absolute top-[8rem] right-20 text-5xl opacity-25 z-[6] select-none pointer-events-none">🌊</div>
       )}
-      {chapterIndex === 2 && (
-        <div className="absolute top-14 right-12 text-5xl opacity-25 z-[6] select-none">✨</div>
+      {(chapter.id >= 9 || chapter.mapTheme === 'finale') && (
+        <div className="absolute top-[8rem] right-20 text-4xl opacity-20 z-[6] select-none pointer-events-none">✨</div>
       )}
 
-      {chapterIndex !== 1 &&
+      {(chapter.id < 5 || chapter.id > 8) &&
         [{ x: 8, y: 15 }, { x: 40, y: 10 }, { x: 72, y: 18 }].map((c, i) => (
           <motion.div
             key={`cloud-${i}`}
@@ -197,36 +250,82 @@ export default function QuestMap() {
           </motion.div>
         ))}
 
-      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-6 pt-4 pb-3"
-        style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.5), transparent)' }}>
-        <button
+      <div
+        className="absolute top-0 left-0 right-0 z-[45] flex items-start justify-between px-4 pt-3 pb-3 sm:px-6 sm:pt-4 gap-3"
+        style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.2) 70%, transparent 100%)' }}
+      >
+        <motion.button
+          type="button"
           onClick={() => navigate('/')}
-          className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg transition-all active:scale-95"
+          className="flex items-center gap-2 pl-1.5 pr-3 sm:pr-4 py-2 rounded-full text-white shadow-lg active:scale-[0.97] transition-transform border-2 shrink-0"
           style={{
-            background: 'rgba(255,255,255,0.14)',
-            border: '2px solid rgba(255,255,255,0.25)',
-            backdropFilter: 'blur(8px)',
-            fontSize: '26px',
-            fontWeight: 900,
+            background: 'linear-gradient(135deg, rgba(255,255,255,0.22), rgba(255,255,255,0.06))',
+            borderColor: 'rgba(255,255,255,0.38)',
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 4px 14px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.2)',
           }}
-          title="返回"
-          aria-label="返回"
+          whileTap={{ x: -2 }}
+          title="回到上一頁"
+          aria-label="返回上一頁"
         >
-          ←
-        </button>
-        <motion.div
-          className="flex items-center gap-3 px-5 py-2 rounded-full"
-          style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)' }}
-          animate={{ scale: [1, 1.03, 1] }}
-          transition={{ duration: 2, repeat: Infinity }}
-        >
-          <span className="text-3xl">⭐</span>
-          <span className="text-white" style={{ fontWeight: 900, fontSize: '30px' }}>{totalStars}</span>
-        </motion.div>
-        <div className="w-8" />
+          <span
+            className="flex items-center justify-center rounded-full"
+            style={{
+              width: 36,
+              height: 36,
+              background: 'rgba(0,0,0,0.2)',
+              border: '1px solid rgba(255,255,255,0.35)',
+            }}
+          >
+            <ChevronLeft strokeWidth={3} className="w-6 h-6 text-white shrink-0 -ml-0.5" aria-hidden />
+          </span>
+          <span style={{ fontWeight: 900, fontSize: '15px', letterSpacing: '0.04em' }}>返回</span>
+        </motion.button>
+
+        <div className="flex flex-col items-end gap-2 shrink-0 min-w-[7.5rem]">
+          <motion.div
+            className="flex items-center gap-2 px-3 py-2 rounded-full"
+            style={{ background: 'rgba(255,255,255,0.14)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.2)' }}
+            animate={{ scale: [1, 1.02, 1] }}
+            transition={{ duration: 2.2, repeat: Infinity }}
+          >
+            <span className="text-2xl leading-none">⭐</span>
+            <span className="text-white tabular-nums leading-none pt-0.5" style={{ fontWeight: 900, fontSize: '22px' }}>
+              {totalStars}
+            </span>
+          </motion.div>
+
+          <button
+            type="button"
+            onClick={() => setShowStickerBook(true)}
+            className="flex items-center gap-2 pl-3 pr-3 py-2.5 rounded-2xl w-full justify-center max-w-[10.5rem] transition-transform active:scale-[0.98]"
+            style={{
+              background:
+                chapterComplete
+                  ? 'linear-gradient(135deg, rgba(52,211,153,0.45), rgba(56,189,248,0.35))'
+                  : 'linear-gradient(135deg, rgba(251,146,60,0.35), rgba(244,114,182,0.28))',
+              backdropFilter: 'blur(14px)',
+              border: chapterComplete ? '1px solid rgba(52,211,153,0.55)' : '1px solid rgba(255,255,255,0.38)',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+            }}
+            title={`${chapter.assembledReward.name} ${chapterDoneCount}/${chapter.levels.length} — 旋轉地球總覽`}
+            aria-label="開啟地球圖鑑：旋轉檢視十二星座完成度"
+          >
+            <span className="text-xl leading-none">{chapterComplete ? '🏅' : '📖'}</span>
+            <div className="text-right min-w-0 flex-1">
+              <div className="text-white/95 leading-tight" style={{ fontWeight: 900, fontSize: '13px', letterSpacing: '0.02em' }}>
+                圖鑑
+              </div>
+              <div className="text-white tabular-nums leading-tight" style={{ fontWeight: 800, fontSize: '12px' }}>
+                {chapter.mapEmoji}{chapterDoneCount}/{chapter.levels.length}
+                {chapterComplete ? ' ✓' : ''}
+              </div>
+            </div>
+          </button>
+        </div>
       </div>
 
-      <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 5 }} preserveAspectRatio="none">
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 5 }} preserveAspectRatio="none">
         <defs>
           <filter id="glow">
             <feGaussianBlur stdDeviation="3" result="coloredBlur" />
@@ -236,20 +335,41 @@ export default function QuestMap() {
             </feMerge>
           </filter>
         </defs>
+        {/* 此星座示意星網（形狀底圖），與天文館星圖一樣用連線標出群星相對關係 */}
+        {asterismEdges.map(([ai, bi], idx) => {
+          const pa = LEVELS[ai];
+          const pb = LEVELS[bi];
+          if (!pa || !pb) return null;
+          return (
+            <line
+              key={`ast-${chapter.id}-${idx}`}
+              x1={`${pa.x}%`}
+              y1={`${pa.y}%`}
+              x2={`${pb.x}%`}
+              y2={`${pb.y}%`}
+              stroke="rgba(255,255,255,0.22)"
+              strokeWidth={2.25}
+              strokeLinecap="round"
+            />
+          );
+        })}
+        {/* 訓練主線進度：依主星順序第 1→2→⋯ 顆 */}
         {LEVELS.slice(0, -1).map((level, i) => {
           const next = LEVELS[i + 1];
           const unlocked = level.id < currentLevel;
           return (
             <line
-              key={`${chapter.id}-${i}`}
+              key={`path-${chapter.id}-${i}`}
               x1={`${level.x}%`}
               y1={`${level.y}%`}
               x2={`${next.x}%`}
               y2={`${next.y}%`}
-              stroke={unlocked ? '#ffd43b' : 'rgba(255,255,255,0.2)'}
-              strokeWidth={unlocked ? 4 : 3}
-              strokeDasharray={unlocked ? 'none' : '8,6'}
+              stroke={unlocked ? '#ffd43b' : 'rgba(255,255,255,0.12)'}
+              strokeWidth={unlocked ? 4.25 : 2.5}
+              strokeDasharray={unlocked ? 'none' : '7,8'}
               filter={unlocked ? 'url(#glow)' : 'none'}
+              strokeLinecap="round"
+              opacity={0.92}
             />
           );
         })}
@@ -263,7 +383,7 @@ export default function QuestMap() {
         return (
           <div
             key={level.id}
-            className="absolute z-10"
+            className="absolute z-[30]"
             style={{
               left: `${level.x}%`,
               top: `${level.y}%`,
@@ -306,11 +426,10 @@ export default function QuestMap() {
               <span style={{ fontSize: '22px' }}>{isLocked ? '🔒' : level.icon}</span>
             </motion.button>
 
-            <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 text-center whitespace-nowrap">
-              <div className="text-white" style={{ fontWeight: 800, fontSize: '13px', textShadow: '0 1px 6px rgba(0,0,0,0.85)' }}>
-                {level.chapterId != null && level.indexInChapter != null
-                  ? `${level.chapterId}-${level.indexInChapter}`
-                  : `第${level.id}關`}
+            <div className="absolute -bottom-11 left-1/2 transform -translate-x-1/2 text-center max-w-[5rem]">
+              <div className="text-white" style={{ fontWeight: 800, fontSize: '12px', textShadow: '0 1px 6px rgba(0,0,0,0.85)' }}>
+                {level.zodiac?.glyph ?? '✦'}
+                {level.indexInChapter ?? '·'}
               </div>
               {isCompleted && (
                 <div className="flex justify-center">
@@ -322,17 +441,65 @@ export default function QuestMap() {
         );
       })}
 
-      <motion.button
-        className="absolute bottom-8 right-6 w-16 h-16 rounded-full shadow-2xl flex items-center justify-center text-3xl z-20"
-        style={{ background: 'linear-gradient(135deg, #ff6b6b, #ff922b)' }}
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.95 }}
-        animate={{ y: [0, -6, 0] }}
-        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-        onClick={() => setShowStickerBook(true)}
-      >
-        🎒
-      </motion.button>
+      <AnimatePresence>
+        {showChapterTip && (
+          <motion.div
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(8px)' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowChapterTip(false)}
+          >
+            <motion.div
+              className="rounded-3xl p-6 max-w-sm w-full text-left"
+              style={{ background: 'linear-gradient(145deg, #1e1b4b, #0f172a)', border: '1px solid rgba(255,255,255,0.18)' }}
+              initial={{ scale: 0.92, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.92, opacity: 0 }}
+              transition={{ type: 'spring', damping: 22 }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="text-white mb-2" style={{ fontWeight: 900, fontSize: '18px' }}>
+                {headerZodiac ? `${headerZodiac.glyph} ${headerZodiac.nameZh}` : chapter.title}
+              </div>
+              {headerZodiac?.approxSunDates ? (
+                <div className="text-amber-100/90 mb-3 tabular-nums" style={{ fontWeight: 800, fontSize: '13px' }}>
+                  太陽星座約 {headerZodiac.approxSunDates.replace(/^約\s*/, '')}
+                </div>
+              ) : null}
+              {headerZodiac?.meaning ? (
+                <div
+                  className="rounded-2xl px-4 py-3 mb-4"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(251,191,36,0.12), rgba(167,139,250,0.1))',
+                    border: '1px solid rgba(253,224,71,0.35)',
+                    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)',
+                  }}
+                >
+                  <div className="text-amber-200" style={{ fontWeight: 900, fontSize: '12px', letterSpacing: '0.06em', marginBottom: '0.45rem' }}>
+                    星座寓意
+                  </div>
+                  <p className="text-amber-50" style={{ fontWeight: 800, fontSize: '15px', lineHeight: 1.55 }}>
+                    {headerZodiac.meaning}
+                  </p>
+                </div>
+              ) : null}
+              <p className="text-white/80" style={{ fontWeight: 600, fontSize: '14px', lineHeight: 1.55 }}>
+                教學用<strong className="text-white">簡化星圖</strong>。數字＝建議遊玩順序；金線＝主線進度，淡線＝星座示意。
+              </p>
+              <button
+                type="button"
+                className="mt-5 w-full py-3 rounded-2xl text-white"
+                style={{ background: 'linear-gradient(135deg, #6366f1, #2563eb)', fontWeight: 900, fontSize: '16px' }}
+                onClick={() => setShowChapterTip(false)}
+              >
+                知道了
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {selectedLevel && (
@@ -355,35 +522,26 @@ export default function QuestMap() {
             >
               <div className="text-6xl mb-3">{selectedLevel.icon}</div>
               <div className="text-white" style={{ fontWeight: 900, fontSize: '22px' }}>
-                第 {selectedLevel.chapterId}-{selectedLevel.indexInChapter} 關
+                {selectedLevel.zodiac && selectedLevel.indexInChapter != null
+                  ? `${selectedLevel.zodiac.glyph}　主星${selectedLevel.indexInChapter}`
+                  : `第 ${selectedLevel.chapterId}-${selectedLevel.indexInChapter} 關`}
               </div>
-              <div className="text-white/70 mt-1 mb-6" style={{ fontWeight: 600, fontSize: '15px' }}>
-                {selectedLevel.type}挑戰
-              </div>
-              <div className="rounded-2xl p-4 mb-6 text-left" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
-                <div className="text-white" style={{ fontWeight: 900, fontSize: '14px' }}>
-                  📖 {selectedLevel.story.title}
-                </div>
-                <div className="text-white/70 mt-1" style={{ fontWeight: 600, fontSize: '12px', lineHeight: 1.6 }}>
-                  {selectedLevel.story.text}
-                </div>
-                <div className="text-white/70 mt-2" style={{ fontWeight: 700, fontSize: '12px' }}>
-                  🧩 本關碎片：{selectedLevel.collectible.emoji} {selectedLevel.collectible.name}
-                </div>
+              <div className="text-white/75 mt-2 mb-6" style={{ fontWeight: 700, fontSize: '15px' }}>
+                {selectedLevel.type}
               </div>
               <button
                 onClick={handleStart}
                 className="w-full py-4 rounded-2xl text-white"
                 style={{ background: 'linear-gradient(135deg, #ffd43b, #ff922b)', fontWeight: 900, fontSize: '18px' }}
               >
-                ▶ 開始！
+                ▶ 開始
               </button>
               <button
                 onClick={() => setSelectedLevel(null)}
                 className="mt-3 w-full py-3 text-white/50"
                 style={{ fontWeight: 700, fontSize: '14px' }}
               >
-                等等再玩
+                等等
               </button>
             </motion.div>
           </motion.div>
@@ -407,11 +565,24 @@ export default function QuestMap() {
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25 }}
             >
-              <div className="flex items-center justify-between mb-5">
-                <div style={{ fontWeight: 900, fontSize: '20px', color: '#92400e' }}>🎒 收藏冊 · 章節碎片與合成</div>
-                <button type="button" onClick={() => setShowStickerBook(false)} className="text-2xl">
+              <div className="flex items-center justify-between mb-4">
+                <div style={{ fontWeight: 900, fontSize: '19px', color: '#92400e', lineHeight: 1.3 }}>
+                  <span className="block">旋轉地球</span>
+                  <span className="block opacity-90" style={{ fontSize: '14px', fontWeight: 800 }}>
+                    外圈十二星座：綠色＝全通關，灰色＝還在冒險
+                  </span>
+                </div>
+                <button type="button" onClick={() => setShowStickerBook(false)} className="text-2xl shrink-0 pl-2">
                   ✕
                 </button>
+              </div>
+
+              <div className="rounded-2xl overflow-hidden mb-6 -mx-1" style={{ background: 'linear-gradient(180deg, rgba(14,165,233,0.08), transparent)' }}>
+                <ConstellationGlobe chapters={CHAPTERS} completedLevels={completedLevels} />
+              </div>
+
+              <div className="mb-3" style={{ fontWeight: 900, fontSize: '15px', color: '#78350f' }}>
+                詳細紀錄
               </div>
 
               {CHAPTERS.map(ch => {
@@ -423,11 +594,10 @@ export default function QuestMap() {
                       <span className="text-2xl">{ch.mapEmoji}</span>
                       <div>
                         <div style={{ fontWeight: 900, fontSize: '15px', color: '#78350f' }}>
-                          第 {ch.id} 章 {ch.title}
+                          {ch.title}
                         </div>
                         <div style={{ fontWeight: 700, fontSize: '12px', color: '#b45309' }}>
-                          碎片 {done}/{ch.levels.length}
-                          {assembled ? ' · 可合成終極收藏' : ''}
+                          此星座主星：{done}/{ch.levels.length}{assembled ? ' · 典藏已完成' : ''}
                         </div>
                       </div>
                     </div>
@@ -444,28 +614,70 @@ export default function QuestMap() {
                             }}
                           >
                             <span style={{ opacity: unlocked ? 1 : 0.25 }}>{unlocked ? lvl.collectible.emoji : '🔒'}</span>
-                            <span style={{ fontSize: '9px', fontWeight: 900, color: unlocked ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.35)', marginTop: 4 }}>
-                              {ch.id}-{lvl.indexInChapter ?? lvl.id}
+                            <span style={{ fontSize: '8px', fontWeight: 900, color: unlocked ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.35)', marginTop: 4, textAlign: 'center', lineHeight: 1.2 }}>
+                              {lvl.zodiac?.glyph}主星{lvl.indexInChapter ?? lvl.id}
                             </span>
                           </div>
                         );
                       })}
                     </div>
                     <div
-                      className="rounded-2xl p-4 flex items-center gap-3"
+                      className="rounded-full px-4 py-3 flex items-center gap-3 min-h-[4.75rem]"
                       style={{
-                        background: assembled ? 'linear-gradient(135deg, #34d399, #38bdf8)' : 'rgba(255,255,255,0.65)',
-                        border: `2px solid ${assembled ? 'rgba(16,185,129,0.5)' : 'rgba(0,0,0,0.08)'}`,
+                        background: assembled ? 'linear-gradient(135deg, #34d399, #38bdf8)' : 'rgba(255,255,255,0.7)',
+                        border: `2px solid ${assembled ? 'rgba(16,185,129,0.5)' : 'rgba(167,139,250,0.35)'}`,
+                        boxShadow: assembled ? '0 8px 24px rgba(16,185,129,0.25)' : '0 8px 20px rgba(15,23,42,0.08)',
                       }}
                     >
-                      <div className="text-4xl">{ch.assembledReward.emoji}</div>
-                      <div>
-                        <div style={{ fontWeight: 900, fontSize: '14px', color: assembled ? '#fff' : '#92400e' }}>
-                          {assembled ? '合成解鎖：' : '終極收藏預覽：'}
+                      <div
+                        className="shrink-0 w-14 h-14 rounded-xl flex items-center justify-center text-[1.85rem]"
+                        style={{
+                          background: 'linear-gradient(145deg, rgba(124,58,237,0.92), rgba(79,70,229,0.88))',
+                          border: '1px solid rgba(255,255,255,0.45)',
+                          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.35)',
+                        }}
+                        aria-hidden
+                      >
+                        {ch.assembledReward.emoji}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div
+                          style={{
+                            fontWeight: 900,
+                            fontSize: '15px',
+                            color: assembled ? '#fff' : '#78350f',
+                            lineHeight: 1.3,
+                          }}
+                        >
                           {ch.assembledReward.name}
                         </div>
-                        <div style={{ fontWeight: 600, fontSize: '12px', color: assembled ? 'rgba(255,255,255,0.92)' : '#78350f', lineHeight: 1.45 }}>
-                          {ch.assembledReward.description}
+                        <div
+                          className="tabular-nums mt-1"
+                          style={{
+                            fontWeight: 800,
+                            fontSize: '14px',
+                            color: assembled ? 'rgba(255,251,235,0.95)' : '#b45309',
+                          }}
+                        >
+                          {done}/{ch.levels.length}
+                          {assembled ? ' ✓' : ''}
+                        </div>
+                      </div>
+                      <div
+                        className="shrink-0 pl-4 ml-auto text-right flex flex-col justify-center border-l"
+                        style={{
+                          borderColor: assembled ? 'rgba(255,255,255,0.35)' : 'rgba(251,146,60,0.35)',
+                          minHeight: '3rem',
+                        }}
+                      >
+                        <div style={{ fontWeight: 700, fontSize: '11px', color: assembled ? 'rgba(255,255,255,0.8)' : '#92400e' }}>
+                          太陽星座約
+                        </div>
+                        <div
+                          className="whitespace-nowrap tabular-nums"
+                          style={{ fontWeight: 900, fontSize: '15px', color: assembled ? '#fff' : '#3d2b0f' }}
+                        >
+                          {ch.levels[0]?.zodiac?.approxSunDates ?? ''}
                         </div>
                       </div>
                     </div>
@@ -474,7 +686,7 @@ export default function QuestMap() {
               })}
 
               <div className="mt-2 text-center" style={{ fontWeight: 700, fontSize: '13px', color: '#d97706' }}>
-                已收集碎片 {collectedLevelIds.length} / {CHAPTERS.reduce((n, c) => n + c.levels.length, 0)} · 每章集滿即可視為合成該章終極收藏 ✨
+                十二張星座示意：共{' '}{CHAPTERS.reduce((n, c) => n + c.levels.length, 0)} 關 · 你已點亮 {collectedLevelIds.length} ✨（每張星網的主星皆可獨立遊玩）
               </div>
             </motion.div>
           </motion.div>
