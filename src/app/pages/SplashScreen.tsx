@@ -4,8 +4,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../context/AppContext';
 import { ensureBlueBgm } from '../utils/blueBgm';
 import AppLogoMark from '../components/AppLogoMark';
-import { Settings } from 'lucide-react';
-
 const CORRECT_PIN = '1234';
 const DEV_PIN = '0000';
 
@@ -152,7 +150,7 @@ export default function SplashScreen() {
           whileTap={{ scale: 0.97 }}
           onClick={handleChildEntry}
         >
-          <div className="text-6xl mb-3">🦸</div>
+          <div className="text-6xl mb-3">🚀</div>
           <div className="text-2xl text-white" style={{ fontWeight: 900 }}>我是小勇士</div>
           <div className="text-white/80 mt-1" style={{ fontWeight: 700, fontSize: '14px' }}>開始訓練</div>
           <div className="mt-4 bg-white/30 rounded-2xl py-2 px-4 inline-block text-white" style={{ fontWeight: 700, fontSize: '13px' }}>
@@ -171,7 +169,7 @@ export default function SplashScreen() {
           whileTap={{ scale: 0.97 }}
           onClick={handleParentEntry}
         >
-          <div className="text-6xl mb-3">👨‍⚕️</div>
+          <div className="text-6xl mb-3">📊</div>
           <div className="text-2xl text-white" style={{ fontWeight: 900 }}>家長 / 治療師</div>
           <div className="text-white/80 mt-1" style={{ fontWeight: 700, fontSize: '14px' }}>看數據</div>
           <div className="mt-4 bg-white/30 rounded-2xl py-2 px-4 inline-block text-white" style={{ fontWeight: 700, fontSize: '13px' }}>
@@ -190,7 +188,7 @@ export default function SplashScreen() {
           whileTap={{ scale: 0.97 }}
           onClick={handleDevEntry}
         >
-          <div className="text-6xl mb-3">{'</>'}</div>
+          <div className="text-6xl mb-3">💻</div>
           <div className="text-2xl text-white" style={{ fontWeight: 900 }}>開發者</div>
           <div className="text-white/80 mt-1" style={{ fontWeight: 700, fontSize: '14px' }}>架構圖 / 變更紀錄</div>
           <div className="mt-4 bg-white/15 rounded-2xl py-2 px-4 inline-block text-white" style={{ fontWeight: 700, fontSize: '13px' }}>
@@ -198,34 +196,6 @@ export default function SplashScreen() {
           </div>
         </motion.button>
       </div>
-
-      <motion.div
-        className="flex flex-wrap justify-center gap-3 px-6 mt-8 w-full max-w-3xl"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.85 }}
-      >
-        <button
-          type="button"
-          onClick={() => navigate('/child/settings')}
-          className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-white/85 text-slate-700 border-2 border-white shadow-lg active:scale-[0.98] transition-transform"
-          style={{ fontWeight: 800, fontSize: '14px' }}
-          title="不一定要先進大廳；音量與環境音在這裡"
-        >
-          <Settings className="w-5 h-5 text-teal-600 shrink-0" strokeWidth={2.3} aria-hidden />
-          兒童端設定
-        </button>
-        <button
-          type="button"
-          onClick={() => navigate('/parent/settings')}
-          className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-white/50 text-slate-600 border-2 border-white/80 shadow-md active:scale-[0.98] transition-transform backdrop-blur-sm"
-          style={{ fontWeight: 800, fontSize: '14px' }}
-          title="進入後若未登入會回到首頁；登入家長後可調訓練參數"
-        >
-          <Settings className="w-5 h-5 text-blue-600 shrink-0" strokeWidth={2.3} aria-hidden />
-          訓練設定（家長）
-        </button>
-      </motion.div>
 
       {/* Bottom info */}
       <motion.div

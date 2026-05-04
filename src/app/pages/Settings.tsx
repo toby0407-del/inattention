@@ -83,7 +83,7 @@ export default function Settings() {
       <div>
         <h2 style={{ fontWeight: 800, fontSize: '20px', color: '#1e293b' }}>親子設定</h2>
         <p style={{ fontWeight: 500, fontSize: '13px', color: '#94a3b8' }}>
-          請在家長／治療師通道內完成設定；兒童端星圖不再提供獨立設定入口。
+          請在家長／治療師通道內完成訓練參數與聆聽設定；兒童端僅背景聲試聽請從星圖大廳右上角「設定」進入。
         </p>
       </div>
 

@@ -124,22 +124,33 @@
     @apply border-border outline-ring/50;
   }
 
+  html {
+    /* avoid iOS "overscroll" flashes that expose default white/black mismatch */
+    background-color: #020617;
+    min-height: 100%;
+    height: auto;
+    -webkit-overflow-scrolling: touch;
+    font-size: var(--font-size);
+  }
+
   body {
+    /* keep a neutral deep-slate backdrop behind full-screen overlays / canvases */
     @apply bg-background text-foreground;
+    background-color: #020617;
+    min-height: 100vh;
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   #root {
-    @apply size-full;
+    @apply size-full min-h-screen bg-slate-950;
   }
 
   /**
   * Default typography styles for HTML elements (h1-h4, p, label, button, input).
   * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.
   */
-
-  html {
-    font-size: var(--font-size);
-  }
 
   h1 {
     font-size: var(--text-2xl);

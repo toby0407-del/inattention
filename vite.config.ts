@@ -18,9 +18,10 @@ function figmaAssetResolver() {
 
 export default defineConfig({
   server: {
-    /** 同一區網可用 Network 網址；手機勿用 localhost，要用電腦的 IP */
-    host: true,
+    /** 明確監聽所有介面（平板區網須 http://電腦IP:5173 ） */
+    host: '0.0.0.0',
     port: 5173,
+    strictPort: false,
     /** 先開首頁（若自動開分頁卡死，請改 false 後手動輸入網址） */
     open: '/',
   },

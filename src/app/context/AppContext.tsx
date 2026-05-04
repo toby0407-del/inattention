@@ -45,6 +45,9 @@ const defaultChild: ChildProfile = {
   avatar: '🦊',
 };
 
+const SEEDED_COMPLETED_LEVELS = Array.from({ length: 42 }, (_, i) => i + 1);
+const SEEDED_CURRENT_LEVEL = 43;
+
 const AppContext = createContext<AppContextType>({
   isParentAuth: false,
   setIsParentAuth: () => {},
@@ -54,12 +57,12 @@ const AppContext = createContext<AppContextType>({
   setSelectedChild: () => {},
   totalStars: 30,
   setTotalStars: () => {},
-  /** 十二星座 × 6 主星 = 72 關；預設通關 1～11、可玩 12（改 [] 從牡羊之主星①開始） */
-  completedLevels: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+  /** 測試用預設：已通過前 42 關，直接從後段章節開始測 */
+  completedLevels: SEEDED_COMPLETED_LEVELS,
   setCompletedLevels: () => {},
-  collectedLevelIds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+  collectedLevelIds: SEEDED_COMPLETED_LEVELS,
   setCollectedLevelIds: () => {},
-  currentLevel: 12,
+  currentLevel: SEEDED_CURRENT_LEVEL,
   setCurrentLevel: () => {},
   lastGameScore: 0,
   setLastGameScore: () => {},
@@ -80,9 +83,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isDeveloperAuth, setIsDeveloperAuth] = useState(false);
   const [selectedChild, setSelectedChild] = useState<ChildProfile>(defaultChild);
   const [totalStars, setTotalStars] = useState(30);
-  const [completedLevels, setCompletedLevels] = useState<number[]>([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
-  const [collectedLevelIds, setCollectedLevelIds] = useState<number[]>([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
-  const [currentLevel, setCurrentLevel] = useState(12);
+  const [completedLevels, setCompletedLevels] = useState<number[]>(SEEDED_COMPLETED_LEVELS);
+  const [collectedLevelIds, setCollectedLevelIds] = useState<number[]>(SEEDED_COMPLETED_LEVELS);
+  const [currentLevel, setCurrentLevel] = useState(SEEDED_CURRENT_LEVEL);
   const [lastGameScore, setLastGameScore] = useState(0);
   const [distractorLevel, setDistractorLevel] = useState<'off' | 'low' | 'medium' | 'high' | 'extreme'>('medium');
   const [eyeDistanceLock, setEyeDistanceLock] = useState(true);

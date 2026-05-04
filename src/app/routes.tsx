@@ -11,6 +11,7 @@ import Dashboard from './pages/Dashboard';
 import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
 import QuestMap from './pages/QuestMap';
+import ChildSettings from './pages/ChildSettings';
 import Calibration from './pages/Calibration';
 import Gameplay from './pages/Gameplay';
 import Reward from './pages/Reward';
@@ -45,6 +46,7 @@ export const router = createBrowserRouter([
         Component: ChildLayout,
         children: [
           { path: 'lobby', Component: QuestMap },
+          { path: 'settings', Component: ChildSettings },
           { path: 'calibration', Component: Calibration },
           { path: 'play', Component: Gameplay },
           { path: 'reward', Component: Reward },

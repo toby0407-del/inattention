@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
+import { TouchBackend } from 'react-dnd-touch-backend';
 import { useApp } from '../context/AppContext';
 import ChildSettingsButton from '../components/ChildSettingsButton';
 import { getLevelMeta, themeBackground } from '../data/levels';
@@ -11,6 +11,8 @@ import type { LevelMode, ZodiacInfo } from '../data/levels';
 const PIECE_TYPE = 'PUZZLE_PIECE';
 const ORDER_CARD_TYPE = 'ORDER_CARD';
 const MEMORY_ITEM_TYPE = 'MEMORY_ITEM';
+
+const DND_OPTIONS = { enableMouseEvents: true, ignoreContextMenu: true } as const;
 
 function ZodiacPortraitCaption({
   zodiac,
@@ -181,7 +183,13 @@ function SpotDiff({ onComplete, zodiac }: { onComplete: () => void; zodiac?: Zod
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
 
-    const hit = DIFFERENCES.find(d => !found.includes(d.id) && Math.abs(d.x - x) < 7 && Math.abs(d.y - y) < 8);
+    // use radial tolerance to reduce miss-click frustration on tablets
+    const hit = DIFFERENCES.find(d => {
+      if (found.includes(d.id)) return false;
+      const dx = d.x - x;
+      const dy = d.y - y;
+      return (dx * dx) / (11 * 11) + (dy * dy) / (12 * 12) <= 1;
+    });
     if (hit) {
       const next = [...found, hit.id];
       setFound(next);
@@ -210,7 +218,7 @@ function SpotDiff({ onComplete, zodiac }: { onComplete: () => void; zodiac?: Zod
         ))}
       </div>
 
-      <div className="text-center text-white/70 mb-3" style={{ fontWeight: 700, fontSize: '13px' }}>
+      <div className="text-center text-white/70 mb-3" style={{ fontWeight: 700, fontSize: '15px' }}>
         找出 {found.length}/{DIFFERENCES.length} 個不同之處！
       </div>
 
@@ -221,7 +229,7 @@ function SpotDiff({ onComplete, zodiac }: { onComplete: () => void; zodiac?: Zod
           style={{ border: '3px solid rgba(255,255,255,0.3)', minHeight: 0 }}>
           <GardenScene showDiff={false} />
           <ZodiacPortraitCaption zodiac={zodiac} compact />
-          <div className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded-lg z-20" style={{ fontSize: '11px', fontWeight: 700 }}>
+          <div className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded-lg z-20" style={{ fontSize: '12px', fontWeight: 700 }}>
             原圖
           </div>
         </div>
@@ -235,7 +243,7 @@ function SpotDiff({ onComplete, zodiac }: { onComplete: () => void; zodiac?: Zod
         >
           <GardenScene showDiff={true} />
           <ZodiacPortraitCaption zodiac={zodiac} compact />
-          <div className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded-lg z-20" style={{ fontSize: '11px', fontWeight: 700 }}>
+          <div className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded-lg z-20" style={{ fontSize: '12px', fontWeight: 700 }}>
             找不同
           </div>
 
@@ -334,6 +342,7 @@ function DraggablePiece({ piece, inTray }: { piece: PieceData; inTray: boolean }
         fontSize: inTray ? '28px' : '32px',
         border: '2px solid rgba(255,255,255,0.5)',
         boxShadow: isDragging ? 'none' : '0 4px 12px rgba(0,0,0,0.2)',
+        touchAction: 'none',
       }}
     >
       {piece.emoji}
@@ -487,62 +496,37 @@ function JigsawGame({ onComplete, zodiac }: { onComplete: () => void; zodiac?: Z
   const placedCount = slots.filter(id => id !== null).length;
 
   return (
-    <DndProvider backend={HTML5Backend}>
-      <div data-dnd-root className="flex flex-col h-full px-4 pb-4">
-        {/* Progress */}
-        <div className="flex justify-center items-center gap-3 py-3">
-          <div className="text-white/80" style={{ fontWeight: 700, fontSize: '13px' }}>
-            已放入 {placedCount}/9 片（可隨意拖曳調整）
-          </div>
-          <div className="flex-1 max-w-48 h-3 bg-white/20 rounded-full overflow-hidden">
-            <motion.div
-              className="h-full rounded-full"
-              style={{ background: 'linear-gradient(90deg, #ffd43b, #20c997)', width: `${(placedCount / 9) * 100}%` }}
-              transition={{ duration: 0.3 }}
-            />
-          </div>
-        </div>
-
-        {/* Reference image */}
-        <div className="flex justify-center mb-3">
-          <div className="relative rounded-xl overflow-hidden border border-white/30 shadow-lg" style={{ width: 100 }}>
-            <ZodiacPortraitCaption zodiac={zodiac} compact />
-            <div className="grid grid-cols-3 gap-0.5 p-0.5 bg-white/20 mt-8">
+    <DndProvider backend={TouchBackend} options={DND_OPTIONS}>
+      <div data-dnd-root className="flex flex-col h-full px-4 pb-3 overflow-y-auto overscroll-contain">
+        {/* Progress + compact reference */}
+        <div className="flex items-center gap-3 py-2 flex-shrink-0">
+          <div className="rounded-lg overflow-hidden border border-white/30 shadow-md flex-shrink-0" style={{ width: 54 }}>
+            <div className="grid grid-cols-3 gap-px p-px bg-white/20">
               {PIECES_DATA.map(p => (
-                <div key={p.id} className="rounded flex items-center justify-center" style={{ background: p.bg, aspectRatio: '1', fontSize: '14px' }}>
+                <div key={p.id} className="flex items-center justify-center" style={{ background: p.bg, aspectRatio: '1', fontSize: '9px' }}>
                   {p.emoji}
                 </div>
               ))}
             </div>
-            <div className="text-center text-white/70 py-1 px-1" style={{ fontSize: '9px', fontWeight: 700, lineHeight: 1.3 }}>
-              參考圖{zodiac ? ` · ${zodiac.nameZh}` : ''}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-white/80" style={{ fontWeight: 700, fontSize: '14px' }}>
+              已放入 {placedCount}/9 片
+              {zodiac && <span className="text-white/55 ml-1">· {zodiac.glyph} {zodiac.nameZh}</span>}
             </div>
-            {zodiac && (
-              <div className="text-center text-white/55 px-1 pb-1" style={{ fontSize: '8px', fontWeight: 600, lineHeight: 1.35 }}>
-                {zodiac.meaning}
-              </div>
-            )}
+            <div className="h-2.5 bg-white/20 rounded-full overflow-hidden mt-1">
+              <motion.div
+                className="h-full rounded-full"
+                style={{ background: 'linear-gradient(90deg, #ffd43b, #20c997)', width: `${(placedCount / 9) * 100}%` }}
+                transition={{ duration: 0.3 }}
+              />
+            </div>
           </div>
         </div>
 
         {/* Main puzzle grid */}
-        <div className="flex-1 flex flex-col items-center justify-center">
-          {zodiac && (
-            <div className="w-full max-w-[min(280px,60vw)] mb-3 px-1">
-              <div
-                className="text-center px-3 py-2 rounded-2xl"
-                style={{ background: 'rgba(15,23,42,0.55)', border: '1px solid rgba(255,255,255,0.14)' }}
-              >
-                <div className="text-white" style={{ fontWeight: 900, fontSize: '12px', lineHeight: 1.3 }}>
-                  {zodiac.glyph} {zodiac.nameZh} ({zodiac.latin})
-                </div>
-                <div className="text-white/80 mt-1" style={{ fontWeight: 600, fontSize: '11px', lineHeight: 1.45 }}>
-                  {zodiac.meaning}
-                </div>
-              </div>
-            </div>
-          )}
-          <div className="grid grid-cols-3 gap-2" style={{ width: 'min(280px, 60vw)', height: 'min(280px, 60vw)' }}>
+        <div className="flex items-center justify-center min-h-0 mb-2">
+          <div className="grid grid-cols-3 gap-2" style={{ width: 'min(248px, 52vw, 34vh)', aspectRatio: '1' }}>
             {Array(9).fill(null).map((_, i) => (
               <DropSlot
                 key={i}
@@ -558,20 +542,20 @@ function JigsawGame({ onComplete, zodiac }: { onComplete: () => void; zodiac?: Z
         <AnimatePresence>
           {checkHint && (
             <motion.div
-              className="mx-auto mb-2 rounded-2xl px-4 py-2 max-w-md text-center"
+            className="mx-auto mb-2 rounded-2xl px-4 py-2.5 max-w-md text-center"
               style={{ background: 'rgba(255,107,107,0.2)', border: '1px solid rgba(255,255,255,0.18)' }}
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
             >
-              <div className="text-white/95" style={{ fontWeight: 800, fontSize: 12, lineHeight: 1.5 }}>
+              <div className="text-white/95" style={{ fontWeight: 800, fontSize: 13, lineHeight: 1.5 }}>
                 {checkHint}
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        <div className="flex justify-center mb-2">
+        <div className="flex justify-center mb-2 flex-shrink-0">
           <button
             type="button"
             onClick={handleCheck}
@@ -583,8 +567,8 @@ function JigsawGame({ onComplete, zodiac }: { onComplete: () => void; zodiac?: Z
         </div>
 
         {/* Tray */}
-        <div className="mt-1">
-          <div className="text-center text-white/50 mb-2" style={{ fontSize: '11px', fontWeight: 700 }}>
+        <div className="flex-shrink-0">
+          <div className="text-center text-white/50 mb-1" style={{ fontSize: '12px', fontWeight: 700 }}>
             拖曳拼圖塊到上方框格 · 也可拖回下方區域取下
           </div>
           <PuzzleTrayStrip onReturnPiece={returnPieceToTray}>
@@ -638,6 +622,7 @@ function OrderDraggable({ card }: { card: OrderCardData }) {
         fontSize: 30,
         border: '2px solid rgba(255,255,255,0.45)',
         boxShadow: isDragging ? 'none' : '0 4px 14px rgba(0,0,0,0.25)',
+        touchAction: 'none',
       }}
     >
       <span>{card.emoji}</span>
@@ -781,18 +766,18 @@ function OrderSortGame({ onComplete, zodiac }: { onComplete: () => void; zodiac?
   }
 
   return (
-    <DndProvider backend={HTML5Backend}>
-      <div data-dnd-root className="flex flex-col h-full px-4 pb-4">
-        <div className="text-center text-white/75 pt-2 pb-1" style={{ fontWeight: 800, fontSize: 13, lineHeight: 1.5 }}>
+    <DndProvider backend={TouchBackend} options={DND_OPTIONS}>
+      <div data-dnd-root className="flex flex-col h-full px-4 pb-3 overflow-y-auto overscroll-contain">
+        <div className="text-center text-white/75 pt-2 pb-1" style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.5 }}>
           把下面圖卡拖進上面格子，排出「一天故事的先後順序」— 隨意調整後按檢查
         </div>
 
         {zodiac && (
           <div className="mt-2 mx-auto max-w-md text-center px-3 py-2 rounded-2xl" style={{ background: 'rgba(15,23,42,0.45)', border: '1px solid rgba(255,255,255,0.14)' }}>
-            <div className="text-yellow-50" style={{ fontWeight: 900, fontSize: '12px' }}>
+            <div className="text-yellow-50" style={{ fontWeight: 900, fontSize: '14px' }}>
               {zodiac.glyph} {zodiac.nameZh} ({zodiac.latin})
             </div>
-            <div className="text-white/80 mt-1" style={{ fontWeight: 600, fontSize: '11px', lineHeight: 1.45 }}>
+            <div className="text-white/80 mt-1" style={{ fontWeight: 600, fontSize: '13px', lineHeight: 1.45 }}>
               {zodiac.meaning}
             </div>
           </div>
@@ -819,7 +804,7 @@ function OrderSortGame({ onComplete, zodiac }: { onComplete: () => void; zodiac?
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
             >
-              <div className="text-white/95" style={{ fontWeight: 800, fontSize: 12, lineHeight: 1.55 }}>
+              <div className="text-white/95" style={{ fontWeight: 800, fontSize: 13, lineHeight: 1.55 }}>
                 {checkHint}
               </div>
             </motion.div>
@@ -837,9 +822,7 @@ function OrderSortGame({ onComplete, zodiac }: { onComplete: () => void; zodiac?
           </button>
         </div>
 
-        <div className="flex-1" />
-
-        <div className="text-center text-white/45 mb-2" style={{ fontSize: 10, fontWeight: 800 }}>
+        <div className="text-center text-white/45 mb-2" style={{ fontSize: 12, fontWeight: 800 }}>
           卡片可從格子拖回下方區域取下 · 格子裡也可直接拖曳交換
         </div>
         <OrderTrayStrip onReturnCard={returnCardToTray}>
@@ -890,6 +873,7 @@ function MemoryDraggable({ item }: { item: MemoryItemData }) {
         minHeight: 76,
         fontSize: 34,
         border: '2px solid rgba(255,255,255,0.4)',
+        touchAction: 'none',
       }}
     >
       {item.emoji}
@@ -1054,18 +1038,18 @@ function MemoryMatchGame({ onComplete, zodiac }: { onComplete: () => void; zodia
   }
 
   return (
-    <DndProvider backend={HTML5Backend}>
-      <div data-dnd-root className="flex flex-col h-full px-4 pb-4">
-        <div className="text-center pt-2 pb-2" style={{ fontWeight: 900, fontSize: 13, color: 'rgba(255,255,255,0.88)' }}>
+    <DndProvider backend={TouchBackend} options={DND_OPTIONS}>
+      <div data-dnd-root className="flex flex-col h-full px-4 pb-3 overflow-y-auto overscroll-contain">
+        <div className="text-center pt-2 pb-2" style={{ fontWeight: 900, fontSize: 15, color: 'rgba(255,255,255,0.88)' }}>
           {phase === 'memorize' ? '先看清楚⋯ 等等格子會遮住，要靠記憶拖回去！' : '憑記憶把圖標拖回原位 — 排好後按檢查'}
         </div>
 
         {zodiac && (
           <div className="mx-auto mb-2 max-w-md text-center px-3 py-2 rounded-2xl" style={{ background: 'rgba(15,23,42,0.45)', border: '1px solid rgba(255,255,255,0.14)' }}>
-            <div style={{ fontWeight: 900, fontSize: '12px', color: '#fef3c7' }}>
+            <div style={{ fontWeight: 900, fontSize: '14px', color: '#fef3c7' }}>
               {zodiac.glyph} {zodiac.nameZh} ({zodiac.latin})
             </div>
-            <div className="text-white/82 mt-1" style={{ fontWeight: 600, fontSize: '11px', lineHeight: 1.45 }}>
+            <div className="text-white/82 mt-1" style={{ fontWeight: 600, fontSize: '13px', lineHeight: 1.45 }}>
               {zodiac.meaning}
             </div>
           </div>
@@ -1105,7 +1089,7 @@ function MemoryMatchGame({ onComplete, zodiac }: { onComplete: () => void; zodia
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <span className="text-white/95" style={{ fontWeight: 800, fontSize: 12, lineHeight: 1.5 }}>
+              <span className="text-white/95" style={{ fontWeight: 800, fontSize: 13, lineHeight: 1.5 }}>
                 {checkHint}
               </span>
             </motion.div>
@@ -1125,11 +1109,9 @@ function MemoryMatchGame({ onComplete, zodiac }: { onComplete: () => void; zodia
           </div>
         )}
 
-        <div className="flex-1" />
-
         {phase === 'play' && (
           <>
-            <div className="text-center text-white/45 mb-2" style={{ fontSize: 10, fontWeight: 800 }}>
+            <div className="text-center text-white/45 mb-2" style={{ fontSize: 12, fontWeight: 800 }}>
               拖曳到對應格子 · 可拖回下方取下再重放
             </div>
             <MemoryTrayStrip onReturnItem={returnItemToTray}>
@@ -1338,7 +1320,7 @@ export default function Gameplay() {
       {/* DnD helper: prevent iOS/Touch scroll from stealing drag */}
       <style>{`
         [data-dnd-root] {
-          touch-action: none;
+          touch-action: manipulation;
         }
       `}</style>
 

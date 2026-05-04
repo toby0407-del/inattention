@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   CHAPTERS,
@@ -12,8 +12,10 @@ import {
   type LevelMeta,
 } from '../data/levels';
 import { ensureBlueBgm } from '../utils/blueBgm';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Settings } from 'lucide-react';
 import ConstellationGlobe from '../components/ConstellationGlobe';
+import ZodiacRingChart from '../components/ZodiacRingChart';
+import StarfieldCanvas from '../components/StarfieldCanvas';
 
 type MapLevel = LevelMeta & { x: number; y: number; stars: number };
 
@@ -50,8 +52,12 @@ export default function QuestMap() {
   const { totalStars, completedLevels, currentLevel, collectedLevelIds } = useApp();
   const [chapterIndex, setChapterIndex] = useState(0);
   const [showStickerBook, setShowStickerBook] = useState(false);
+  /** 圖鑑全螢幕（含可選瀏覽器全螢幕 API） */
+  const [stickerBookFullscreen, setStickerBookFullscreen] = useState(false);
+  const stickerPanelRef = useRef<HTMLDivElement>(null);
   const [selectedLevel, setSelectedLevel] = useState<MapLevel | null>(null);
-  const [showChapterTip, setShowChapterTip] = useState(false);
+  /** null | meaning：僅「？」打開星座寓意（點星座名稱不會開彈窗） */
+  const [chapterTipMode, setChapterTipMode] = useState<null | 'meaning'>(null);
 
   useEffect(() => {
     ensureBlueBgm();
@@ -113,6 +119,40 @@ export default function QuestMap() {
     setSelectedLevel(null);
   }
 
+  useEffect(() => {
+    const onFs = () => {
+      if (!document.fullscreenElement) setStickerBookFullscreen(false);
+    };
+    document.addEventListener('fullscreenchange', onFs);
+    return () => document.removeEventListener('fullscreenchange', onFs);
+  }, []);
+
+  function closeStickerBook() {
+    setShowStickerBook(false);
+    setStickerBookFullscreen(false);
+    if (document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => {});
+    }
+  }
+
+  async function toggleStickerFullscreen() {
+    if (!stickerBookFullscreen) {
+      setStickerBookFullscreen(true);
+      requestAnimationFrame(() => {
+        stickerPanelRef.current?.requestFullscreen().catch(() => {});
+      });
+    } else {
+      if (document.fullscreenElement) {
+        try {
+          await document.exitFullscreen();
+        } catch {
+          /* ignore */
+        }
+      }
+      setStickerBookFullscreen(false);
+    }
+  }
+
   const canPrevChapter = chapterIndex > 0;
   const canNextChapter = chapterIndex < CHAPTERS.length - 1;
 
@@ -133,7 +173,7 @@ export default function QuestMap() {
   const constellationLabel = headerZodiac ? `${headerZodiac.glyph} ${headerZodiac.nameZh}` : chapter.title;
 
   function openChapterMeaningTip() {
-    setShowChapterTip(true);
+    setChapterTipMode('meaning');
   }
 
   return (
@@ -142,20 +182,18 @@ export default function QuestMap() {
       style={{ fontFamily: 'Nunito, sans-serif', background: bg }}
     >
       {/* 黃道星區：星座名＋日期框（章節切換鈕在螢幕左下／右下） */}
-      <div className="absolute left-0 right-0 z-20 flex flex-col items-center px-4 pt-[5.25rem] pb-2 max-w-lg mx-auto w-full gap-2.5 pointer-events-none">
-        <div className="flex items-start justify-center gap-2 w-full px-1 pointer-events-auto">
-          <button
-            type="button"
-            className="flex-1 min-w-0 rounded-2xl px-3.5 py-2.5 text-center cursor-pointer transition-transform active:scale-[0.99]"
+      <div className="absolute left-0 right-0 z-20 flex flex-col items-center px-4 pt-[5.25rem] pb-2 max-w-lg mx-auto w-full gap-2.5">
+        <div className="flex items-start justify-center gap-2 w-full px-1">
+          <div
+            className="flex-1 min-w-0 rounded-2xl px-3.5 py-2.5 text-center"
             style={{
               background: 'rgba(15,23,42,0.45)',
               backdropFilter: 'blur(12px)',
               border: '2px solid rgba(255,255,255,0.42)',
               boxShadow: '0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.12)',
             }}
-            title="點開看星座寓意"
-            aria-label={`${constellationLabel}：查看星座寓意與星圖說明`}
-            onClick={openChapterMeaningTip}
+            title="星座名稱與太陽星座日期（僅顯示）"
+            aria-label={`${constellationLabel}：名稱與日期（僅顯示）`}
           >
             <div
               className="text-white leading-snug"
@@ -172,30 +210,44 @@ export default function QuestMap() {
               </div>
             ) : null}
             <div className="mt-1.5 text-white/65" style={{ fontWeight: 700, fontSize: '11px' }}>
-              點此或右側 ❓ 查看寓意
+              名稱與日期如下 · 右上按鈕可看寓意
             </div>
-          </button>
-          <button
-            type="button"
-            className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-white transition-transform active:scale-90"
-            style={{
-              fontWeight: 900,
-              fontSize: '17px',
-              background: 'rgba(255,255,255,0.2)',
-              border: '2px solid rgba(255,255,255,0.45)',
-              boxShadow: '0 2px 12px rgba(0,0,0,0.25)',
-            }}
-            title="查看星座寓意與星圖說明"
-            aria-label="開啟星座寓意與本頁說明"
-            onClick={openChapterMeaningTip}
-          >
-            ?
-          </button>
+          </div>
         </div>
         <div className="text-white/80 text-center w-full pointer-events-none px-1" style={{ fontWeight: 700, fontSize: '13px', lineHeight: 1.35 }}>
           {chapter.subtitle}
         </div>
       </div>
+
+      {/* 新版：固定右上「星座寓意」按鈕（平板觸控優先） */}
+      <button
+        type="button"
+        className="absolute z-[70] right-4 top-[5.25rem] rounded-2xl px-4 py-2.5 text-white active:scale-[0.98] transition-transform"
+        style={{
+          background: 'linear-gradient(135deg, rgba(30,64,175,0.82), rgba(99,102,241,0.82))',
+          border: '2px solid rgba(255,255,255,0.35)',
+          boxShadow: '0 6px 18px rgba(15,23,42,0.35)',
+          fontWeight: 900,
+          fontSize: '14px',
+          letterSpacing: '0.02em',
+          pointerEvents: 'auto',
+        }}
+        title="介紹此星座的寓意"
+        aria-label="開啟此星座寓意"
+        onClick={openChapterMeaningTip}
+        onPointerDown={e => {
+          e.preventDefault();
+          e.stopPropagation();
+          openChapterMeaningTip();
+        }}
+        onTouchEnd={e => {
+          e.preventDefault();
+          e.stopPropagation();
+          openChapterMeaningTip();
+        }}
+      >
+        星座寓意 ?
+      </button>
 
       <button
         type="button"
@@ -230,28 +282,13 @@ export default function QuestMap() {
         ▶
       </button>
 
-      {/* 前景裝飾：略調強度 */}
-      {Array.from({ length: chapter.id >= 11 ? 36 : chapter.id <= 4 ? 24 : 30 }).map((_, i) => (
-        <motion.div
-          key={`star-${i}`}
-          className="absolute rounded-full bg-white"
-          style={{
-            width: Math.random() * 3 + 1,
-            height: Math.random() * 3 + 1,
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * (chapter.mapTheme === 'ocean' ? 40 : 55)}%`,
-            opacity: Math.random() * 0.6 + 0.15,
-          }}
-          animate={{ opacity: [0.2, 0.75, 0.2] }}
-          transition={{ duration: 2 + Math.random() * 3, repeat: Infinity, delay: Math.random() * 2 }}
-        />
-      ))}
+      {/* 全頁星海（背景層，滿版散布；canvas 一次性繪製，避免卡頓） */}
+      <div className="absolute inset-0 z-[5] pointer-events-none">
+        <StarfieldCanvas seed={chapter.id} opacity={1} uniform={1} />
+      </div>
 
       {chapter.id <= 4 && (
         <div className="absolute top-[7.25rem] right-[5.75rem] w-10 h-10 rounded-full z-[6] opacity-80" style={{ background: '#fef3c7', boxShadow: '0 0 22px rgba(254,243,199,0.45)' }} />
-      )}
-      {chapter.id >= 5 && chapter.id <= 8 && (
-        <div className="absolute top-[8rem] right-20 text-5xl opacity-25 z-[6] select-none pointer-events-none">🌊</div>
       )}
       {(chapter.id >= 9 || chapter.mapTheme === 'finale') && (
         <div className="absolute top-[8rem] right-20 text-4xl opacity-20 z-[6] select-none pointer-events-none">✨</div>
@@ -302,6 +339,23 @@ export default function QuestMap() {
           <span style={{ fontWeight: 900, fontSize: '15px', letterSpacing: '0.04em' }}>返回</span>
         </motion.button>
 
+        <div className="flex items-start gap-2 shrink-0">
+        <motion.button
+          type="button"
+          onClick={() => navigate('/child/settings')}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-2xl text-white shadow-md active:scale-[0.97] transition-transform border"
+          style={{
+            background: 'linear-gradient(135deg, rgba(13,148,136,0.55), rgba(8,145,178,0.45))',
+            borderColor: 'rgba(255,255,255,0.35)',
+            backdropFilter: 'blur(10px)',
+          }}
+          title="兒童端設定：背景聲與試聽"
+          aria-label="開啟兒童端設定"
+        >
+          <Settings className="w-5 h-5 text-white shrink-0" strokeWidth={2.2} aria-hidden />
+          <span className="hidden sm:inline" style={{ fontWeight: 900, fontSize: '13px' }}>設定</span>
+        </motion.button>
+
         <div className="flex flex-col items-end gap-2 shrink-0 min-w-[7.5rem]">
           <motion.div
             className="flex items-center gap-2 px-3 py-2 rounded-full"
@@ -317,7 +371,10 @@ export default function QuestMap() {
 
           <button
             type="button"
-            onClick={() => setShowStickerBook(true)}
+            onClick={() => {
+              setStickerBookFullscreen(false);
+              setShowStickerBook(true);
+            }}
             className="flex items-center gap-2 pl-3 pr-3 py-2.5 rounded-2xl w-full justify-center max-w-[10.5rem] transition-transform active:scale-[0.98]"
             style={{
               background:
@@ -328,8 +385,8 @@ export default function QuestMap() {
               border: chapterComplete ? '1px solid rgba(52,211,153,0.55)' : '1px solid rgba(255,255,255,0.38)',
               boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
             }}
-            title={`${chapter.assembledReward.name} ${chapterDoneCount}/${chapter.levels.length} — 旋轉地球總覽`}
-            aria-label="開啟地球圖鑑：旋轉檢視十二星座完成度"
+            title={`${chapter.assembledReward.name} ${chapterDoneCount}/${chapter.levels.length} — 仰望星空圖鑑`}
+            aria-label="開啟星空圖鑑：第一視角旋轉仰望檢視十二星座完成度"
           >
             <span className="text-xl leading-none">{chapterComplete ? '🏅' : '📖'}</span>
             <div className="text-right min-w-0 flex-1">
@@ -342,6 +399,7 @@ export default function QuestMap() {
               </div>
             </div>
           </button>
+        </div>
         </div>
       </div>
 
@@ -462,14 +520,14 @@ export default function QuestMap() {
       })}
 
       <AnimatePresence>
-        {showChapterTip && (
+        {chapterTipMode && (
           <motion.div
             className="fixed inset-0 z-[60] flex items-center justify-center p-4"
             style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(8px)' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setShowChapterTip(false)}
+            onClick={() => setChapterTipMode(null)}
           >
             <motion.div
               className="rounded-3xl p-6 max-w-sm w-full text-left"
@@ -480,10 +538,12 @@ export default function QuestMap() {
               transition={{ type: 'spring', damping: 22 }}
               onClick={e => e.stopPropagation()}
             >
-              <div className="text-white mb-2" style={{ fontWeight: 900, fontSize: '18px' }}>
+              <div className="text-white/90 mb-3" style={{ fontWeight: 900, fontSize: '15px' }}>
                 {headerZodiac ? `${headerZodiac.glyph} ${headerZodiac.nameZh}` : chapter.title}
+                <span className="block text-white/50 mt-1" style={{ fontWeight: 700, fontSize: '12px' }}>
+                  星座寓意
+                </span>
               </div>
-
               <div
                 className="rounded-2xl px-4 py-3.5 mb-4"
                 style={{
@@ -492,28 +552,18 @@ export default function QuestMap() {
                   boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)',
                 }}
               >
-                <div className="text-amber-200" style={{ fontWeight: 900, fontSize: '13px', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>
-                  星座寓意
-                </div>
-                <p className="text-amber-50" style={{ fontWeight: 800, fontSize: '17px', lineHeight: 1.6 }}>
+                <p className="text-amber-50" style={{ fontWeight: 800, fontSize: '17px', lineHeight: 1.65 }}>
                   {constellationMeaning || `「${chapter.title}」的星座寓意將於教學內容補上。`}
                 </p>
               </div>
-
-              {headerZodiac?.approxSunDates ? (
-                <div className="text-amber-100/90 mb-3 tabular-nums" style={{ fontWeight: 800, fontSize: '13px' }}>
-                  太陽星座約 {headerZodiac.approxSunDates.replace(/^約\s*/, '')}
-                </div>
-              ) : null}
-
-              <p className="text-white/80" style={{ fontWeight: 600, fontSize: '14px', lineHeight: 1.55 }}>
-                教學用<strong className="text-white">簡化星圖</strong>。數字＝建議遊玩順序；金線＝主線進度，淡線＝星座示意。
+              <p className="text-white/55" style={{ fontWeight: 600, fontSize: '12px', lineHeight: 1.5 }}>
+                名稱與日期在畫面上方區塊；請點圓形外框 <strong className="text-white">？</strong> 開啟本視窗。
               </p>
               <button
                 type="button"
                 className="mt-5 w-full py-3 rounded-2xl text-white"
                 style={{ background: 'linear-gradient(135deg, #6366f1, #2563eb)', fontWeight: 900, fontSize: '16px' }}
-                onClick={() => setShowChapterTip(false)}
+                onClick={() => setChapterTipMode(null)}
               >
                 知道了
               </button>
@@ -572,36 +622,78 @@ export default function QuestMap() {
       <AnimatePresence>
         {showStickerBook && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-end justify-center"
-            style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+            className={`fixed inset-0 z-50 flex relative ${stickerBookFullscreen ? 'items-stretch justify-stretch' : 'items-end justify-center sm:items-center sm:p-4'}`}
+            style={{ background: 'rgba(0,0,0,0.76)', backdropFilter: 'blur(10px)' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            onClick={() => {
+              // fullscreen 時避免誤觸背景導致跳出；僅按右上 ✕ 才會關閉
+              if (!stickerBookFullscreen) closeStickerBook();
+            }}
           >
+            {/* 圖鑑遮罩層也要滿版星海（canvas 版，避免進入卡頓） */}
+            <div className="absolute inset-0 z-0 pointer-events-none">
+              <StarfieldCanvas seed={chapter.id + 999} opacity={0.85} uniform={1} />
+            </div>
+
             <motion.div
-              className="w-full max-w-lg rounded-t-3xl p-6"
-              style={{ background: 'linear-gradient(135deg, #fef3c7, #fff7ed)', maxHeight: '78vh', overflowY: 'auto' }}
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 25 }}
+              ref={stickerPanelRef}
+              className={
+                stickerBookFullscreen
+                  ? 'w-full min-h-[100svh] h-[100svh] max-h-[100svh] overflow-hidden rounded-none px-3 py-3 sm:px-5 sm:py-4 flex flex-col min-h-0'
+                  : 'w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-6 max-h-[78vh] overflow-y-auto overflow-x-hidden flex flex-col'
+              }
+              style={{
+                background: stickerBookFullscreen ? 'linear-gradient(180deg,#020617 0%,#0f172a 45%,#020617 100%)' : 'linear-gradient(135deg, #fef3c7, #fff7ed)',
+                boxShadow: stickerBookFullscreen ? 'none' : '0 -8px 40px rgba(0,0,0,0.2)',
+                paddingBottom: stickerBookFullscreen ? 'max(12px, env(safe-area-inset-bottom))' : undefined,
+              }}
+              initial={stickerBookFullscreen ? { opacity: 0, scale: 0.98 } : { y: '100%' }}
+              animate={stickerBookFullscreen ? { opacity: 1, scale: 1 } : { y: 0 }}
+              exit={stickerBookFullscreen ? { opacity: 0 } : { y: '100%' }}
+              transition={{ type: 'spring', damping: 26 }}
+              onClick={e => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between mb-4">
-                <div style={{ fontWeight: 900, fontSize: '19px', color: '#92400e', lineHeight: 1.3 }}>
-                  <span className="block">旋轉地球</span>
-                  <span className="block opacity-90" style={{ fontSize: '14px', fontWeight: 800 }}>
-                    外圈十二星座：綠色＝全通關，灰色＝還在冒險
+              <div className={`flex items-start justify-between gap-3 shrink-0 ${stickerBookFullscreen ? 'mb-2' : 'mb-4'}`}>
+                <div className="min-w-0" style={stickerBookFullscreen ? { fontWeight: 900, fontSize: '17px', color: '#e2e8f0', lineHeight: 1.35 } : { fontWeight: 900, fontSize: '19px', color: '#92400e', lineHeight: 1.3 }}>
+                  <span className="block">仰望星空 · 收藏庫</span>
+                  <span className="block opacity-90 mt-0.5" style={{ fontSize: '13px', fontWeight: 800 }}>
+                    背景有隨機星海；十二星座只顯示主星與連線。
                   </span>
                 </div>
-                <button type="button" onClick={() => setShowStickerBook(false)} className="text-2xl shrink-0 pl-2">
-                  ✕
-                </button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      closeStickerBook();
+                    }}
+                    className={
+                      stickerBookFullscreen
+                        ? 'p-2.5 rounded-2xl text-slate-300 hover:bg-white/10 text-2xl leading-none'
+                        : 'p-2.5 rounded-2xl text-amber-900/70 hover:bg-white/60 text-2xl leading-none'
+                    }
+                    aria-label="關閉圖鑑"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
 
-              <div className="rounded-2xl overflow-hidden mb-6 -mx-1" style={{ background: 'linear-gradient(180deg, rgba(14,165,233,0.08), transparent)' }}>
-                <ConstellationGlobe chapters={CHAPTERS} completedLevels={completedLevels} />
+              {/* 十二星座環狀總覽（2D SVG） */}
+              <div
+                className={`overflow-hidden shrink-0 ${stickerBookFullscreen ? 'flex-1 flex flex-col min-h-0 -mx-1 mb-0' : 'rounded-2xl mb-6 -mx-1'}`}
+              >
+                <ZodiacRingChart
+                  chapters={CHAPTERS}
+                  completedLevels={completedLevels}
+                  collectedLevelIds={collectedLevelIds}
+                />
               </div>
 
+              {!stickerBookFullscreen && (
+                <>
               <div className="mb-3" style={{ fontWeight: 900, fontSize: '15px', color: '#78350f' }}>
                 詳細紀錄
               </div>
@@ -724,6 +816,8 @@ export default function QuestMap() {
               <div className="mt-2 text-center" style={{ fontWeight: 700, fontSize: '13px', color: '#d97706' }}>
                 十二張星座示意：共{' '}{CHAPTERS.reduce((n, c) => n + c.levels.length, 0)} 關 · 你已點亮 {collectedLevelIds.length} ✨（每張星網的主星皆可獨立遊玩）
               </div>
+                </>
+              )}
             </motion.div>
           </motion.div>
         )}
