@@ -5,6 +5,7 @@ import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { TouchBackend } from 'react-dnd-touch-backend';
 import { useApp } from '../context/AppContext';
 import ChildSettingsButton from '../components/ChildSettingsButton';
+import PhotoHuntSpotDiff from '../components/PhotoHuntSpotDiff';
 import { getLevelMeta, themeBackground } from '../data/levels';
 import type { LevelMode, ZodiacInfo } from '../data/levels';
 
@@ -160,35 +161,322 @@ function GardenScene({ showDiff }: { showDiff: boolean }) {
 interface Difference {
   id: number;
   label: string;
-  x: number;
-  y: number;
+  /** SVG viewBox 座標（0..320） */
+  xSvg: number;
+  /** SVG viewBox 座標（0..200） */
+  ySvg: number;
 }
 
-const DIFFERENCES: Difference[] = [
-  { id: 1, label: '太陽光芒數不同',   x: 81, y: 19 },
-  { id: 2, label: '雲朵數量不同',      x: 53, y: 14 },
-  { id: 3, label: '樹上沒有蘋果',      x: 15, y: 52 },
-  { id: 4, label: '花朵顏色不同',      x: 69, y: 79 },
-  { id: 5, label: '兔子和小鳥不見了', x: 56, y: 78 },
+type SpotVariant = {
+  id: number;
+  /** 點擊判定用的答案（SVG viewBox 座標） */
+  differences: Difference[];
+  /** 右圖點擊容錯（SVG 座標） */
+  hitRxSvg: number;
+  hitRySvg: number;
+  /** 畫面渲染（左圖 showDiff=false、右圖 showDiff=true） */
+  Scene: (props: { showDiff: boolean }) => JSX.Element;
+};
+
+function HouseSceneV1({ showDiff }: { showDiff: boolean }) {
+  return (
+    <svg viewBox="0 0 320 200" style={{ width: '100%', height: '100%' }} xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id={`sky-v1-${showDiff}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#87ceeb" />
+          <stop offset="100%" stopColor="#c8e6f5" />
+        </linearGradient>
+      </defs>
+      <rect width="320" height="200" fill={`url(#sky-v1-${showDiff})`} />
+      <ellipse cx="160" cy="185" rx="170" ry="35" fill="#5a9e3a" />
+      <rect x="0" y="165" width="320" height="35" fill="#5a9e3a" />
+      <circle cx="260" cy="38" r="22" fill="#FFD700" />
+      {Array.from({ length: showDiff ? 6 : 8 }).map((_, i) => {
+        const angle = (i * (showDiff ? 60 : 45) * Math.PI) / 180;
+        const x1 = 260 + Math.cos(angle) * 26;
+        const y1 = 38 + Math.sin(angle) * 26;
+        const x2 = 260 + Math.cos(angle) * 34;
+        const y2 = 38 + Math.sin(angle) * 34;
+        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#FFD700" strokeWidth="2.5" strokeLinecap="round" />;
+      })}
+      <g opacity="0.9">
+        <ellipse cx="70" cy="40" rx="30" ry="16" fill="white" />
+        <ellipse cx="55" cy="45" rx="18" ry="12" fill="white" />
+        <ellipse cx="88" cy="46" rx="16" ry="10" fill="white" />
+      </g>
+      {!showDiff && (
+        <g opacity="0.9">
+          <ellipse cx="170" cy="28" rx="24" ry="13" fill="white" />
+          <ellipse cx="156" cy="32" rx="15" ry="10" fill="white" />
+          <ellipse cx="182" cy="33" rx="14" ry="9" fill="white" />
+        </g>
+      )}
+      <rect x="42" y="105" width="10" height="55" fill="#7a5230" rx="2" />
+      <ellipse cx="47" cy="100" rx="22" ry="28" fill="#2d8c20" />
+      <ellipse cx="47" cy="92" rx="16" ry="20" fill="#38a327" />
+      {!showDiff && <circle cx="52" cy="102" r="5" fill="#e8323a" />}
+      {!showDiff && <circle cx="40" cy="108" r="4" fill="#e8323a" />}
+      <rect x="255" y="110" width="10" height="50" fill="#7a5230" rx="2" />
+      <ellipse cx="260" cy="105" rx="20" ry="25" fill="#2d8c20" />
+      <ellipse cx="260" cy="98" rx="14" ry="18" fill="#38a327" />
+      <rect x="120" y="120" width="80" height="55" fill="#e8d5b7" rx="3" />
+      <polygon points="115,120 160,88 205,120" fill="#c0392b" />
+      <rect x="148" y="148" width="24" height="27" fill="#8b6914" rx="2" />
+      <circle cx="170" cy="162" r="2" fill="#FFD700" />
+      {showDiff ? (
+        <>
+          <rect x="126" y="128" width="18" height="16" fill="#87ceeb" stroke="#aaa" strokeWidth="1" rx="2" />
+          <rect x="196" y="128" width="18" height="16" fill="#87ceeb" stroke="#aaa" strokeWidth="1" rx="2" />
+        </>
+      ) : (
+        <>
+          <ellipse cx="135" cy="136" rx="9" ry="9" fill="#87ceeb" stroke="#aaa" strokeWidth="1" />
+          <ellipse cx="205" cy="136" rx="9" ry="9" fill="#87ceeb" stroke="#aaa" strokeWidth="1" />
+        </>
+      )}
+      {[{x:88,y:160,c:'#ff6b9d'},{x:100,y:163,c:'#ffd43b'},{x:222,y:158,c:showDiff?'#4dabf7':'#ff6b9d'},{x:234,y:161,c:'#ffd43b'}].map((f,i)=>(
+        <g key={i}>
+          <circle cx={f.x} cy={f.y} r="5" fill={f.c} />
+          <circle cx={f.x-4} cy={f.y-3} r="4" fill={f.c} opacity="0.7" />
+          <circle cx={f.x+4} cy={f.y-3} r="4" fill={f.c} opacity="0.7" />
+          <line x1={f.x} y1={f.y+4} x2={f.x} y2={f.y+12} stroke="#38a327" strokeWidth="1.5" />
+        </g>
+      ))}
+      {!showDiff && (
+        <g transform="translate(180,155)">
+          <ellipse cx="0" cy="8" rx="7" ry="8" fill="white" />
+          <ellipse cx="-4" cy="-2" rx="2.5" ry="7" fill="white" />
+          <ellipse cx="4" cy="-2" rx="2.5" ry="7" fill="white" />
+          <circle cx="-1.5" cy="9" r="1" fill="pink" />
+          <circle cx="1.5" cy="9" r="1" fill="pink" />
+        </g>
+      )}
+      {!showDiff && (
+        <g transform="translate(62,75)">
+          <ellipse cx="0" cy="0" rx="6" ry="4" fill="#4dabf7" />
+          <circle cx="-5" cy="-1" r="3" fill="#4dabf7" />
+          <polygon points="-8,0 -12,1 -8,2" fill="#ffd43b" />
+          <circle cx="-6" cy="-2" r="0.8" fill="black" />
+        </g>
+      )}
+    </svg>
+  );
+}
+
+function BeachSceneV2({ showDiff }: { showDiff: boolean }) {
+  return (
+    <svg viewBox="0 0 320 200" style={{ width: '100%', height: '100%' }} xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id={`sky-v2-${showDiff}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#60a5fa" />
+          <stop offset="100%" stopColor="#93c5fd" />
+        </linearGradient>
+        <linearGradient id={`sea-v2-${showDiff}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#0ea5e9" />
+          <stop offset="100%" stopColor="#0369a1" />
+        </linearGradient>
+      </defs>
+      <rect width="320" height="200" fill={`url(#sky-v2-${showDiff})`} />
+      <rect y="96" width="320" height="72" fill={`url(#sea-v2-${showDiff})`} />
+      <rect y="168" width="320" height="32" fill="#fcd34d" />
+      <circle cx="50" cy="42" r={showDiff ? 16 : 20} fill="#fde047" />
+      <g opacity="0.95">
+        <ellipse cx={showDiff ? 138 : 132} cy="46" rx="34" ry="16" fill="white" />
+        <ellipse cx={showDiff ? 118 : 112} cy="52" rx="18" ry="12" fill="white" />
+        <ellipse cx={showDiff ? 160 : 154} cy="52" rx="16" ry="10" fill="white" />
+      </g>
+      {/* umbrella */}
+      <rect x="246" y="116" width="4" height="50" fill="#92400e" rx="2" />
+      <path
+        d="M220 118 C230 88, 270 88, 280 118 Z"
+        fill={showDiff ? '#a78bfa' : '#fb7185'}
+        stroke="rgba(255,255,255,0.35)"
+        strokeWidth="1"
+      />
+      {/* boat */}
+      <g transform={showDiff ? 'translate(120,108)' : 'translate(112,108)'} opacity="0.9">
+        <path d="M0 18 L44 18 L36 30 L8 30 Z" fill="#0f172a" opacity="0.35" />
+        <path d="M6 16 L38 16 L32 26 L12 26 Z" fill="#334155" />
+        <line x1="22" y1="0" x2="22" y2="16" stroke="#0f172a" strokeWidth="2" />
+        <polygon points="22,2 22,14 6,14" fill={showDiff ? '#22c55e' : '#60a5fa'} opacity="0.95" />
+      </g>
+      {/* shells */}
+      <circle cx="92" cy="180" r="6" fill={showDiff ? '#fb923c' : '#f472b6'} />
+      <circle cx="114" cy="176" r="5" fill="#fda4af" opacity={showDiff ? 0.0 : 1} />
+      {/* starfish */}
+      <g transform="translate(176,180) scale(0.9)" opacity={showDiff ? 0.0 : 1}>
+        <polygon points="0,-10 3,-2 10,0 3,2 0,10 -3,2 -10,0 -3,-2" fill="#fb7185" />
+      </g>
+    </svg>
+  );
+}
+
+function NightSceneV3({ showDiff }: { showDiff: boolean }) {
+  return (
+    <svg viewBox="0 0 320 200" style={{ width: '100%', height: '100%' }} xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id={`sky-v3-${showDiff}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#0b1026" />
+          <stop offset="100%" stopColor="#111827" />
+        </linearGradient>
+      </defs>
+      <rect width="320" height="200" fill={`url(#sky-v3-${showDiff})`} />
+      <rect y="150" width="320" height="50" fill="#0f172a" />
+      {/* moon */}
+      <g transform="translate(250,44)">
+        <circle cx="0" cy="0" r={showDiff ? 14 : 18} fill="#e5e7eb" />
+        <circle cx={showDiff ? 6 : 7} cy="-2" r={showDiff ? 12 : 16} fill="#0b1026" opacity="0.7" />
+      </g>
+      {/* stars */}
+      {Array.from({ length: 18 }).map((_, i) => {
+        const x = (i * 37) % 320;
+        const y = 18 + ((i * 29) % 90);
+        const r = (i % 3) + 0.8;
+        return <circle key={i} cx={x} cy={y} r={r} fill="white" opacity={showDiff && i % 5 === 0 ? 0.15 : 0.55} />;
+      })}
+      {/* camp */}
+      <polygon points="78,150 110,110 142,150" fill="#1f2937" stroke="rgba(255,255,255,0.18)" />
+      <polygon points="116,150 150,105 186,150" fill="#111827" stroke="rgba(255,255,255,0.16)" />
+      {/* fire */}
+      <g transform="translate(210,154)">
+        <ellipse cx="0" cy="0" rx="20" ry="8" fill="rgba(0,0,0,0.35)" />
+        <path d="M0 -28 C-10 -18 -6 -8 0 0 C6 -8 10 -18 0 -28 Z" fill={showDiff ? '#fb923c' : '#f59e0b'} />
+        <circle cx="-8" cy="-4" r={showDiff ? 4 : 3} fill="#fde047" opacity="0.85" />
+      </g>
+      {/* lantern */}
+      <g transform="translate(34,126)">
+        <rect x="0" y="0" width="16" height="22" rx="3" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.22)" />
+        <circle cx="8" cy="10" r={showDiff ? 3 : 5} fill="#fde047" opacity="0.85" />
+      </g>
+      {/* cat appears only in diff */}
+      {showDiff && (
+        <g transform="translate(278,160)" opacity="0.9">
+          <circle cx="0" cy="0" r="6" fill="#e5e7eb" />
+          <polygon points="-5,-4 -10,-10 -6,-6" fill="#e5e7eb" />
+          <polygon points="5,-4 10,-10 6,-6" fill="#e5e7eb" />
+        </g>
+      )}
+    </svg>
+  );
+}
+
+function ParkSceneV4({ showDiff }: { showDiff: boolean }) {
+  return (
+    <svg viewBox="0 0 320 200" style={{ width: '100%', height: '100%' }} xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id={`sky-v4-${showDiff}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#a7f3d0" />
+          <stop offset="100%" stopColor="#60a5fa" />
+        </linearGradient>
+      </defs>
+      <rect width="320" height="200" fill={`url(#sky-v4-${showDiff})`} />
+      <rect y="140" width="320" height="60" fill="#16a34a" />
+      {/* bench */}
+      <g transform="translate(110,150)">
+        <rect x="0" y="0" width={showDiff ? 104 : 96} height="10" rx="4" fill="#92400e" />
+        <rect x="6" y="10" width={showDiff ? 92 : 84} height="10" rx="4" fill="#78350f" />
+        <rect x="10" y="20" width="8" height="18" fill="#78350f" />
+        <rect x={showDiff ? 86 : 78} y="20" width="8" height="18" fill="#78350f" />
+      </g>
+      {/* kite */}
+      <g transform="translate(240,38)">
+        <polygon points="0,0 16,10 0,20 -16,10" fill={showDiff ? '#60a5fa' : '#fb7185'} opacity="0.95" />
+        <line x1="0" y1="20" x2="-18" y2="62" stroke="rgba(15,23,42,0.55)" strokeWidth="1.8" />
+        {!showDiff && <circle cx="-18" cy="62" r="5" fill="#eab308" />}
+      </g>
+      {/* tree */}
+      <rect x="40" y="96" width="12" height="60" fill="#7a5230" rx="2" />
+      <ellipse cx="46" cy="90" rx="26" ry="30" fill="#22c55e" />
+      <ellipse cx="46" cy="78" rx="18" ry="22" fill="#16a34a" />
+      {/* apple count differs */}
+      <circle cx="38" cy="92" r="5" fill="#ef4444" opacity={showDiff ? 1 : 0} />
+      <circle cx="54" cy="96" r="5" fill="#ef4444" opacity={showDiff ? 1 : 0} />
+      <circle cx="50" cy="84" r="5" fill="#ef4444" opacity={showDiff ? 0 : 1} />
+      {/* balloon */}
+      <g transform="translate(286,118)">
+        <ellipse cx="0" cy="0" rx={showDiff ? 9 : 12} ry={showDiff ? 12 : 16} fill="#a78bfa" />
+        <line x1="0" y1="12" x2="-2" y2="36" stroke="rgba(15,23,42,0.45)" strokeWidth="1.5" />
+      </g>
+    </svg>
+  );
+}
+
+const SPOT_VARIANTS: SpotVariant[] = [
+  {
+    id: 1,
+    Scene: HouseSceneV1,
+    hitRxSvg: 18,
+    hitRySvg: 18,
+    differences: [
+      { id: 1, label: '太陽光芒數不同', xSvg: 260, ySvg: 38 },
+      { id: 2, label: '雲朵數量不同', xSvg: 170, ySvg: 30 },
+      { id: 3, label: '樹上沒有蘋果', xSvg: 46, ySvg: 104 },
+      { id: 4, label: '花朵顏色不同', xSvg: 222, ySvg: 158 },
+      { id: 5, label: '兔子和小鳥不見了', xSvg: 180, ySvg: 160 },
+    ],
+  },
+  {
+    id: 2,
+    Scene: BeachSceneV2,
+    hitRxSvg: 18,
+    hitRySvg: 18,
+    differences: [
+      { id: 1, label: '太陽大小不同', xSvg: 50, ySvg: 42 },
+      { id: 2, label: '雲的位置不同', xSvg: 132, ySvg: 46 },
+      { id: 3, label: '遮陽傘顏色不同', xSvg: 250, ySvg: 108 },
+      { id: 4, label: '沙灘少一個貝殼', xSvg: 114, ySvg: 176 },
+      { id: 5, label: '海星不見了', xSvg: 176, ySvg: 180 },
+    ],
+  },
+  {
+    id: 3,
+    Scene: NightSceneV3,
+    hitRxSvg: 18,
+    hitRySvg: 18,
+    differences: [
+      { id: 1, label: '月亮大小不同', xSvg: 250, ySvg: 44 },
+      { id: 2, label: '星星亮度不同', xSvg: 50, ySvg: 38 },
+      { id: 3, label: '營火顏色不同', xSvg: 210, ySvg: 140 },
+      { id: 4, label: '提燈光點大小不同', xSvg: 42, ySvg: 136 },
+      { id: 5, label: '右下多了一隻小貓', xSvg: 278, ySvg: 160 },
+    ],
+  },
+  {
+    id: 4,
+    Scene: ParkSceneV4,
+    hitRxSvg: 18,
+    hitRySvg: 18,
+    differences: [
+      { id: 1, label: '長椅長度不同', xSvg: 160, ySvg: 155 },
+      { id: 2, label: '風箏顏色不同', xSvg: 240, ySvg: 48 },
+      { id: 3, label: '風箏尾端少了圓球', xSvg: 222, ySvg: 100 },
+      { id: 4, label: '樹上蘋果數量不同', xSvg: 46, ySvg: 90 },
+      { id: 5, label: '氣球大小不同', xSvg: 286, ySvg: 118 },
+    ],
+  },
 ];
 
-function SpotDiff({ onComplete, zodiac }: { onComplete: () => void; zodiac?: ZodiacInfo }) {
+function SpotDiff({ onComplete, zodiac, levelId }: { onComplete: () => void; zodiac?: ZodiacInfo; levelId: number }) {
   const [found, setFound] = useState<number[]>([]);
   const [wrongClicks, setWrongClicks] = useState<{ x: number; y: number; id: number }[]>([]);
   const rightRef = useRef<HTMLDivElement>(null);
+  const variant = SPOT_VARIANTS[levelId % SPOT_VARIANTS.length] ?? SPOT_VARIANTS[0];
+  const DIFFERENCES = variant.differences;
 
   function handleRightClick(e: React.MouseEvent<HTMLDivElement>) {
     const rect = rightRef.current?.getBoundingClientRect();
     if (!rect) return;
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
+    const xSvg = (x / 100) * 320;
+    const ySvg = (y / 100) * 200;
 
     // use radial tolerance to reduce miss-click frustration on tablets
     const hit = DIFFERENCES.find(d => {
       if (found.includes(d.id)) return false;
-      const dx = d.x - x;
-      const dy = d.y - y;
-      return (dx * dx) / (11 * 11) + (dy * dy) / (12 * 12) <= 1;
+      const dx = d.xSvg - xSvg;
+      const dy = d.ySvg - ySvg;
+      return (dx * dx) / (variant.hitRxSvg * variant.hitRxSvg) + (dy * dy) / (variant.hitRySvg * variant.hitRySvg) <= 1;
     });
     if (hit) {
       const next = [...found, hit.id];
@@ -227,7 +515,7 @@ function SpotDiff({ onComplete, zodiac }: { onComplete: () => void; zodiac?: Zod
         {/* Left - original */}
         <div className="flex-1 rounded-2xl overflow-hidden border-3 border-white/30 shadow-2xl relative"
           style={{ border: '3px solid rgba(255,255,255,0.3)', minHeight: 0 }}>
-          <GardenScene showDiff={false} />
+          <variant.Scene showDiff={false} />
           <ZodiacPortraitCaption zodiac={zodiac} compact />
           <div className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded-lg z-20" style={{ fontSize: '12px', fontWeight: 700 }}>
             原圖
@@ -241,7 +529,7 @@ function SpotDiff({ onComplete, zodiac }: { onComplete: () => void; zodiac?: Zod
           style={{ border: '3px solid rgba(255,255,255,0.3)', minHeight: 0 }}
           onClick={handleRightClick}
         >
-          <GardenScene showDiff={true} />
+          <variant.Scene showDiff={true} />
           <ZodiacPortraitCaption zodiac={zodiac} compact />
           <div className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded-lg z-20" style={{ fontSize: '12px', fontWeight: 700 }}>
             找不同
@@ -499,18 +787,18 @@ function JigsawGame({ onComplete, zodiac }: { onComplete: () => void; zodiac?: Z
     <DndProvider backend={TouchBackend} options={DND_OPTIONS}>
       <div data-dnd-root className="flex flex-col h-full px-4 pb-3 overflow-y-auto overscroll-contain">
         {/* Progress + compact reference */}
-        <div className="flex items-center gap-3 py-2 flex-shrink-0">
-          <div className="rounded-lg overflow-hidden border border-white/30 shadow-md flex-shrink-0" style={{ width: 54 }}>
+        <div className="flex flex-col items-center gap-2 py-2 flex-shrink-0">
+          <div className="rounded-xl overflow-hidden border border-white/30 shadow-md flex-shrink-0" style={{ width: 110 }}>
             <div className="grid grid-cols-3 gap-px p-px bg-white/20">
               {PIECES_DATA.map(p => (
-                <div key={p.id} className="flex items-center justify-center" style={{ background: p.bg, aspectRatio: '1', fontSize: '9px' }}>
+                <div key={p.id} className="flex items-center justify-center" style={{ background: p.bg, aspectRatio: '1', fontSize: '14px' }}>
                   {p.emoji}
                 </div>
               ))}
             </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-white/80" style={{ fontWeight: 700, fontSize: '14px' }}>
+          <div className="w-full max-w-md">
+            <div className="text-white/80 text-center" style={{ fontWeight: 700, fontSize: '14px' }}>
               已放入 {placedCount}/9 片
               {zodiac && <span className="text-white/55 ml-1">· {zodiac.glyph} {zodiac.nameZh}</span>}
             </div>
@@ -1307,7 +1595,7 @@ export default function Gameplay() {
       {/* Game area */}
       <div className="flex-1 overflow-hidden" style={{ pointerEvents: paused ? 'none' : 'auto' }}>
         {mode === 'spot' ? (
-          <SpotDiff onComplete={handleComplete} zodiac={levelMeta.zodiac} />
+          <PhotoHuntSpotDiff onComplete={handleComplete} levelId={levelMeta.id ?? level} />
         ) : mode === 'jigsaw' ? (
           <JigsawGame onComplete={handleComplete} zodiac={levelMeta.zodiac} />
         ) : mode === 'order' ? (

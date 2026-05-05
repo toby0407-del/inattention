@@ -36,6 +36,12 @@ interface AppContextType {
   /** 示意：錄製／截圖介面偏好模糊（產品層可自行接資料） */
   privacyBlurEnabled: boolean;
   setPrivacyBlurEnabled: (v: boolean | ((prev: boolean) => boolean)) => void;
+  /** 找不同：場景順序是否隨機（治療師端可調） */
+  spotSceneRandomEnabled: boolean;
+  setSpotSceneRandomEnabled: (v: boolean | ((prev: boolean) => boolean)) => void;
+  /** 找不同：隨機種子（同一種子可重現同一排序） */
+  spotSceneRandomSeed: number;
+  setSpotSceneRandomSeed: (v: number | ((prev: number) => number)) => void;
 }
 
 const defaultChild: ChildProfile = {
@@ -76,6 +82,10 @@ const AppContext = createContext<AppContextType>({
   setSoundHintEnabled: () => {},
   privacyBlurEnabled: false,
   setPrivacyBlurEnabled: () => {},
+  spotSceneRandomEnabled: true,
+  setSpotSceneRandomEnabled: () => {},
+  spotSceneRandomSeed: 20260505,
+  setSpotSceneRandomSeed: () => {},
 });
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -92,6 +102,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [toleranceThreshold, setToleranceThreshold] = useState(1.5);
   const [soundHintEnabled, setSoundHintEnabled] = useState(true);
   const [privacyBlurEnabled, setPrivacyBlurEnabled] = useState(false);
+  const [spotSceneRandomEnabled, setSpotSceneRandomEnabled] = useState(true);
+  const [spotSceneRandomSeed, setSpotSceneRandomSeed] = useState(20260505);
 
   return (
     <AppContext.Provider value={{
@@ -108,6 +120,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       toleranceThreshold, setToleranceThreshold,
       soundHintEnabled, setSoundHintEnabled,
       privacyBlurEnabled, setPrivacyBlurEnabled,
+      spotSceneRandomEnabled, setSpotSceneRandomEnabled,
+      spotSceneRandomSeed, setSpotSceneRandomSeed,
     }}>
       {children}
     </AppContext.Provider>

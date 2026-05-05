@@ -20,6 +20,10 @@ export default function Settings() {
     setSoundHintEnabled,
     privacyBlurEnabled,
     setPrivacyBlurEnabled,
+    spotSceneRandomEnabled,
+    setSpotSceneRandomEnabled,
+    spotSceneRandomSeed,
+    setSpotSceneRandomSeed,
   } = useApp();
 
   const [calibrating, setCalibrating] = useState(false);
@@ -244,6 +248,71 @@ export default function Settings() {
               )}
             </button>
           ))}
+        </div>
+      </motion.div>
+
+      {/* Spot-the-difference ordering */}
+      <motion.div
+        className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100"
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.25 }}
+      >
+        <div className="flex gap-4 mb-5">
+          <div className="w-11 h-11 rounded-2xl bg-violet-50 flex items-center justify-center">
+            <RefreshCw size={20} className="text-violet-600" />
+          </div>
+          <div className="min-w-0">
+            <div style={{ fontWeight: 700, fontSize: '15px', color: '#1e293b' }}>找不同關卡｜難度順序</div>
+            <div style={{ fontWeight: 500, fontSize: '13px', color: '#64748b', marginTop: '2px' }}>
+              可將找不同圖片順序設為隨機；並可用種子固定排序，方便治療師調整難度與重現測試。
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div style={{ fontWeight: 800, fontSize: '13px', color: '#334155' }}>
+              {spotSceneRandomEnabled ? '✅ 目前：隨機排序' : '📌 目前：固定排序'}
+            </div>
+            <div style={{ fontWeight: 600, fontSize: '12px', color: '#94a3b8', marginTop: 4 }}>
+              固定排序會依關卡 id 依序輪播；隨機排序會依「種子」打散。
+            </div>
+          </div>
+          <button
+            onClick={() => setSpotSceneRandomEnabled(v => !v)}
+            className="relative w-14 h-8 rounded-full transition-all duration-300 flex-shrink-0"
+            style={{ background: spotSceneRandomEnabled ? 'linear-gradient(135deg, #8b5cf6, #6366f1)' : '#e2e8f0' }}
+            aria-label="切換找不同關卡排序模式"
+          >
+            <motion.div
+              className="absolute top-1 w-6 h-6 bg-white rounded-full shadow-md"
+              animate={{ x: spotSceneRandomEnabled ? 30 : 2 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+            />
+          </button>
+        </div>
+
+        <div className="mt-5">
+          <div className="flex items-center justify-between gap-3">
+            <div style={{ fontWeight: 700, fontSize: '12px', color: '#64748b' }}>隨機種子</div>
+            <div className="px-3 py-1 rounded-xl text-white tabular-nums" style={{ background: 'linear-gradient(135deg, #8b5cf6, #6366f1)', fontWeight: 900, fontSize: '13px' }}>
+              {spotSceneRandomSeed}
+            </div>
+          </div>
+          <input
+            type="range"
+            min={1}
+            max={999999}
+            step={1}
+            value={spotSceneRandomSeed}
+            onChange={e => setSpotSceneRandomSeed(Number(e.target.value))}
+            className="w-full h-2 rounded-full appearance-none cursor-pointer mt-3"
+            style={{
+              background: `linear-gradient(to right, #8b5cf6 ${(spotSceneRandomSeed / 999999) * 100}%, #e2e8f0 0%)`,
+              accentColor: '#8b5cf6',
+            }}
+          />
         </div>
       </motion.div>
 
