@@ -9,8 +9,12 @@
     "dev:local": "vite --host localhost --port 5173"
   },
   "dependencies": {
+    "@capacitor/cli": "^8.3.1",
+    "@capacitor/core": "^8.3.1",
+    "@capacitor/ios": "^8.3.1",
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.1",
+    "@mediapipe/tasks-vision": "^0.10.35",
     "@mui/icons-material": "7.3.5",
     "@mui/material": "7.3.5",
     "@popperjs/core": "2.11.8",
@@ -75,7 +79,7 @@
     "@tailwindcss/vite": "4.1.12",
     "@vitejs/plugin-react": "4.7.0",
     "tailwindcss": "4.1.12",
-    "vite": "6.3.5"
+    "vite": "^6.4.2"
   },
   "peerDependencies": {
     "react": "18.3.1",

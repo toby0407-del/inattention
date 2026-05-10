@@ -8,6 +8,7 @@ import ChildSettingsButton from '../components/ChildSettingsButton';
 import PhotoHuntSpotDiff from '../components/PhotoHuntSpotDiff';
 import { getLevelMeta, themeBackground } from '../data/levels';
 import type { LevelMode, ZodiacInfo } from '../data/levels';
+import { useEyeGazeMonitor } from '../hooks/useEyeGazeMonitor';
 
 const PIECE_TYPE = 'PUZZLE_PIECE';
 const ORDER_CARD_TYPE = 'ORDER_CARD';
@@ -1432,48 +1433,54 @@ export default function Gameplay() {
   const levelMeta = getLevelMeta(level);
 
   const [showDistracted, setShowDistracted] = useState(false);
-  const [showDistance, setShowDistance] = useState(false);
   const [gameComplete, setGameComplete] = useState(false);
   const [paused, setPaused] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
-  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [showStory, setShowStory] = useState(true);
+  const gazeLostStartedAtRef = useRef<number | null>(null);
+  const { videoRef, isCameraReady, hasFace, isLookingAtScreen, error: gazeError } = useEyeGazeMonitor(true);
 
-  // Simulate distraction events (mock)
+  // 視線偏離超過一定時間才觸發分心遮罩
   useEffect(() => {
-    timersRef.current.forEach(t => clearTimeout(t));
-    timersRef.current = [];
+    if (paused || showStory || gameComplete) {
+      setShowDistracted(false);
+      gazeLostStartedAtRef.current = null;
+      return;
+    }
 
-    if (paused) return;
-    if (distractorLevel === 'off') return;
-
-    const profile = (() => {
+    const allowedMs = (() => {
       switch (distractorLevel) {
-        case 'low': return { distractedAt: 22000, distanceAt: 36000 };
-        case 'medium': return { distractedAt: 15000, distanceAt: 30000 };
-        case 'high': return { distractedAt: 11000, distanceAt: 24000 };
-        case 'extreme': return { distractedAt: 8000, distanceAt: 18000 };
-        default: return { distractedAt: 15000, distanceAt: 30000 };
+        case 'off':
+          return Number.POSITIVE_INFINITY;
+        case 'low':
+          return 3000;
+        case 'medium':
+          return 2200;
+        case 'high':
+          return 1600;
+        case 'extreme':
+          return 1000;
+        default:
+          return 2200;
       }
     })();
 
-    const t1 = setTimeout(() => {
-      setShowDistracted(true);
-      const t = setTimeout(() => setShowDistracted(false), 3000);
-      timersRef.current.push(t);
-    }, profile.distractedAt);
-    const t2 = setTimeout(() => {
-      setShowDistance(true);
-      const t = setTimeout(() => setShowDistance(false), 3500);
-      timersRef.current.push(t);
-    }, profile.distanceAt);
-    timersRef.current.push(t1, t2);
+    const isOk = hasFace && isLookingAtScreen;
+    if (isOk) {
+      gazeLostStartedAtRef.current = null;
+      setShowDistracted(false);
+      return;
+    }
 
-    return () => {
-      timersRef.current.forEach(t => clearTimeout(t));
-      timersRef.current = [];
-    };
-  }, [paused, distractorLevel]);
+    const now = Date.now();
+    if (gazeLostStartedAtRef.current == null) {
+      gazeLostStartedAtRef.current = now;
+      return;
+    }
+    if (now - gazeLostStartedAtRef.current >= allowedMs) {
+      setShowDistracted(true);
+    }
+  }, [paused, distractorLevel, hasFace, isLookingAtScreen, showStory, gameComplete]);
 
   function handleComplete() {
     setGameComplete(true);
@@ -1491,8 +1498,6 @@ export default function Gameplay() {
   }
 
   function handleExit() {
-    timersRef.current.forEach(t => clearTimeout(t));
-    timersRef.current = [];
     navigate('/child/lobby');
   }
 
@@ -1589,6 +1594,34 @@ export default function Gameplay() {
           >
             ⏸
           </button>
+        </div>
+      </div>
+
+      {/* gaze monitor (前鏡頭) */}
+      <div className="absolute right-3 top-[62px] z-30 rounded-2xl overflow-hidden border border-white/20 shadow-xl"
+        style={{ width: 112, background: 'rgba(2,6,23,0.72)' }}>
+        <div className="relative w-full h-[84px] bg-black">
+          <video
+            ref={videoRef}
+            className="w-full h-full object-cover scale-x-[-1]"
+            muted
+            playsInline
+            autoPlay
+          />
+          {!isCameraReady && (
+            <div className="absolute inset-0 flex items-center justify-center text-white/80" style={{ fontSize: 11, fontWeight: 700 }}>
+              開啟鏡頭中
+            </div>
+          )}
+        </div>
+        <div className="px-2 py-1.5 text-white" style={{ fontSize: 11, fontWeight: 800 }}>
+          {gazeError
+            ? '鏡頭不可用'
+            : !hasFace
+              ? '未偵測到臉部'
+              : isLookingAtScreen
+                ? '正在注視螢幕'
+                : '視線偏離中'}
         </div>
       </div>
 
@@ -1715,41 +1748,6 @@ export default function Gameplay() {
               </motion.div>
               <div className="text-white" style={{ fontWeight: 900, fontSize: '20px' }}>請看回這裡喔！</div>
               <div className="text-white/70 mt-2" style={{ fontWeight: 600, fontSize: '14px' }}>精靈正在等你回來 ✨</div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Distance warning overlay */}
-      <AnimatePresence>
-        {showDistance && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center"
-            style={{ backdropFilter: 'blur(8px)', background: 'rgba(255,100,50,0.3)' }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div
-              className="text-center p-8 rounded-3xl shadow-2xl"
-              style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid rgba(255,255,255,0.3)' }}
-              animate={{ scale: [1, 1.04, 1] }}
-              transition={{ duration: 0.8, repeat: Infinity }}
-            >
-              <div className="text-8xl mb-4">🐼</div>
-              <div className="text-white" style={{ fontWeight: 900, fontSize: '24px' }}>退後一點點喔！</div>
-              <div className="text-white/80 mt-2" style={{ fontWeight: 700, fontSize: '16px' }}>
-                👀 眼睛離螢幕太近啦
-              </div>
-              <div className="text-white/60 mt-1" style={{ fontWeight: 600, fontSize: '13px' }}>
-                坐好後遊戲自動繼續
-              </div>
-              <motion.div
-                className="mt-4 w-16 h-2 rounded-full mx-auto"
-                style={{ background: '#ffd43b' }}
-                animate={{ width: ['4rem', '0rem'] }}
-                transition={{ duration: 3.5, ease: 'linear' }}
-              />
             </motion.div>
           </motion.div>
         )}
