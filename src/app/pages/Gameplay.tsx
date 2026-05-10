@@ -1438,7 +1438,7 @@ export default function Gameplay() {
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [showStory, setShowStory] = useState(true);
   const gazeLostStartedAtRef = useRef<number | null>(null);
-  const { videoRef, isCameraReady, hasFace, isLookingAtScreen, error: gazeError } = useEyeGazeMonitor(true);
+  const { videoRef, isCameraReady, hasFace, isLookingAtScreen, error: gazeError, source: gazeSource, screenPoint: gazeScreenPoint, calibration: gazeCalib } = useEyeGazeMonitor(true);
 
   // 視線偏離超過一定時間才觸發分心遮罩
   useEffect(() => {
@@ -1597,21 +1597,45 @@ export default function Gameplay() {
         </div>
       </div>
 
-      {/* gaze monitor (前鏡頭) */}
+      {/* gaze monitor (前鏡頭 / ARKit) */}
       <div className="absolute right-3 top-[62px] z-30 rounded-2xl overflow-hidden border border-white/20 shadow-xl"
         style={{ width: 112, background: 'rgba(2,6,23,0.72)' }}>
-        <div className="relative w-full h-[84px] bg-black">
-          <video
-            ref={videoRef}
-            className="w-full h-full object-cover scale-x-[-1]"
-            muted
-            playsInline
-            autoPlay
-          />
+        <div className="relative w-full h-[84px] bg-black overflow-hidden">
+          {gazeSource === 'web' ? (
+            <video
+              ref={videoRef}
+              className="w-full h-full object-cover scale-x-[-1]"
+              muted
+              playsInline
+              autoPlay
+            />
+          ) : (
+            <div
+              className="w-full h-full flex flex-col items-center justify-center"
+              style={{ background: 'radial-gradient(circle at 50% 40%, rgba(34,197,94,0.18), rgba(2,6,23,0.0) 70%)' }}
+            >
+              <div style={{ fontSize: 26 }}>{hasFace && isLookingAtScreen ? '👁️' : hasFace ? '👀' : '🫥'}</div>
+              <div className="mt-1 text-white/65" style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.4 }}>
+                ARKit
+              </div>
+            </div>
+          )}
           {!isCameraReady && (
             <div className="absolute inset-0 flex items-center justify-center text-white/80" style={{ fontSize: 11, fontWeight: 700 }}>
-              開啟鏡頭中
+              {gazeSource === 'native' ? '啟動 ARKit 中' : '開啟鏡頭中'}
             </div>
+          )}
+          {/* native 模式下顯示注視點小色塊 */}
+          {gazeSource === 'native' && gazeScreenPoint && (
+            <div
+              className="absolute w-1.5 h-1.5 rounded-full bg-emerald-300"
+              style={{
+                left: `${(gazeScreenPoint.px / window.innerWidth) * 100}%`,
+                top: `${(gazeScreenPoint.py / window.innerHeight) * 100}%`,
+                transform: 'translate(-50%,-50%)',
+                boxShadow: '0 0 6px rgba(110,231,183,0.9)',
+              }}
+            />
           )}
         </div>
         <div className="px-2 py-1.5 text-white" style={{ fontSize: 11, fontWeight: 800 }}>
@@ -1623,6 +1647,11 @@ export default function Gameplay() {
                 ? '正在注視螢幕'
                 : '視線偏離中'}
         </div>
+        {gazeSource === 'native' && (
+          <div className="px-2 pb-1.5 text-white/50" style={{ fontSize: 9, fontWeight: 700 }}>
+            {gazeCalib ? `已校準 · RMSE ${gazeCalib.rmsePx.toFixed(0)}px` : '未校準'}
+          </div>
+        )}
       </div>
 
       {/* Game area */}

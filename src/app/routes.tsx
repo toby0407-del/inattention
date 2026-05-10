@@ -16,6 +16,7 @@ import Calibration from './pages/Calibration';
 import Gameplay from './pages/Gameplay';
 import Reward from './pages/Reward';
 import Developer from './pages/Developer';
+import GazeTest from './pages/GazeTest';
 
 function Root() {
   return (
@@ -39,6 +40,7 @@ export const router = createBrowserRouter([
           { path: 'analytics', Component: Analytics },
           { path: 'settings', Component: Settings },
           { path: 'dev', Component: Developer },
+          { path: 'gaze-test', Component: GazeTest },
         ],
       },
       {

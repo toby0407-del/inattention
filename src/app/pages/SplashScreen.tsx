@@ -208,6 +208,15 @@ export default function SplashScreen() {
         <span>v1.0.3</span>
         <span className="mx-2">·</span>
         <a href="#" className="underline">隱私權政策</a>
+        <span className="mx-2">·</span>
+        <button
+          type="button"
+          onClick={() => navigate('/parent/gaze-test')}
+          className="underline hover:text-slate-600"
+          style={{ fontWeight: 700 }}
+        >
+          👁 Gaze Test (Dev)
+        </button>
       </motion.div>
 
       {/* Auth Modal */}
