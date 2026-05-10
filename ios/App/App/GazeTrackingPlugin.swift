@@ -6,18 +6,12 @@ import ARKit
 /// 取得 3D 視線資料，並透過 Capacitor `notifyListeners` 推到 Web 端。
 ///
 /// 與 Web 端 `getUserMedia` 互斥：呼叫 `start()` 後，Web 端不可同時開鏡頭。
+///
+/// 註冊機制：本檔搭配 `GazeTrackingPlugin.m` 中的 `CAP_PLUGIN` 巨集向
+/// Capacitor 註冊。本地（非 npm）plugin 必須走 `.m` 巨集這條路，否則
+/// Capacitor 端會回應 "plugin is not implemented on ios"。
 @objc(GazeTrackingPlugin)
-public class GazeTrackingPlugin: CAPPlugin, CAPBridgedPlugin, ARSessionDelegate {
-
-    // MARK: - CAPBridgedPlugin
-
-    public let identifier = "GazeTrackingPlugin"
-    public let jsName = "GazeTracking"
-    public let pluginMethods: [CAPPluginMethod] = [
-        CAPPluginMethod(name: "isSupported", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "start", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "stop", returnType: CAPPluginReturnPromise),
-    ]
+public class GazeTrackingPlugin: CAPPlugin, ARSessionDelegate {
 
     // MARK: - State
 
