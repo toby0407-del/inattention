@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
@@ -9,6 +9,7 @@ import PhotoHuntSpotDiff from '../components/PhotoHuntSpotDiff';
 import { getLevelMeta, themeBackground } from '../data/levels';
 import type { LevelMode, ZodiacInfo } from '../data/levels';
 import { useEyeGazeMonitor } from '../hooks/useEyeGazeMonitor';
+import { primeDistractAlert, playDistractAlert } from '../utils/distractAlert';
 
 const PIECE_TYPE = 'PUZZLE_PIECE';
 const ORDER_CARD_TYPE = 'ORDER_CARD';
@@ -582,18 +583,141 @@ interface PieceData {
   correctSlot: number;
 }
 
-// 9 片使用不同 emoji，避免「圖示看起來一樣其實放錯片」導致怎麼擺都過不了檢查
-const PIECES_DATA: PieceData[] = [
-  { id: 0, emoji: '🌤️', bg: '#87ceeb', correctSlot: 0 },
-  { id: 1, emoji: '☀️', bg: '#FFD700', correctSlot: 1 },
-  { id: 2, emoji: '⛅', bg: '#a0d8ef', correctSlot: 2 },
-  { id: 3, emoji: '🌿', bg: '#7ec8a0', correctSlot: 3 },
-  { id: 4, emoji: '🏠', bg: '#f0c080', correctSlot: 4 },
-  { id: 5, emoji: '🍃', bg: '#8bc48a', correctSlot: 5 },
-  { id: 6, emoji: '🌱', bg: '#5a9e3a', correctSlot: 6 },
-  { id: 7, emoji: '🌻', bg: '#4caf50', correctSlot: 7 },
-  { id: 8, emoji: '🌳', bg: '#45a049', correctSlot: 8 },
+interface PuzzleTheme {
+  id: string;
+  label: string;
+  /** 9 片 emoji，依序對應第 0..8 格（3×3 由左至右、由上至下） */
+  pieces: PieceData[];
+}
+
+/** 各主題 9 片拼圖。每片 id===correctSlot，跟陣列 index 對齊以簡化判斷。 */
+const PUZZLE_THEMES: PuzzleTheme[] = [
+  {
+    id: 'sunny',
+    label: '風和日麗',
+    pieces: [
+      { id: 0, emoji: '🌤️', bg: '#87ceeb', correctSlot: 0 },
+      { id: 1, emoji: '☀️', bg: '#FFD700', correctSlot: 1 },
+      { id: 2, emoji: '⛅', bg: '#a0d8ef', correctSlot: 2 },
+      { id: 3, emoji: '🌿', bg: '#7ec8a0', correctSlot: 3 },
+      { id: 4, emoji: '🏠', bg: '#f0c080', correctSlot: 4 },
+      { id: 5, emoji: '🍃', bg: '#8bc48a', correctSlot: 5 },
+      { id: 6, emoji: '🌱', bg: '#5a9e3a', correctSlot: 6 },
+      { id: 7, emoji: '🌻', bg: '#4caf50', correctSlot: 7 },
+      { id: 8, emoji: '🌳', bg: '#45a049', correctSlot: 8 },
+    ],
+  },
+  {
+    id: 'ocean',
+    label: '海底世界',
+    pieces: [
+      { id: 0, emoji: '☁️', bg: '#c5e7ff', correctSlot: 0 },
+      { id: 1, emoji: '☀️', bg: '#fde68a', correctSlot: 1 },
+      { id: 2, emoji: '🪁', bg: '#fbcfe8', correctSlot: 2 },
+      { id: 3, emoji: '🌊', bg: '#60a5fa', correctSlot: 3 },
+      { id: 4, emoji: '🐬', bg: '#3b82f6', correctSlot: 4 },
+      { id: 5, emoji: '⛵', bg: '#1e40af', correctSlot: 5 },
+      { id: 6, emoji: '🐠', bg: '#0ea5e9', correctSlot: 6 },
+      { id: 7, emoji: '🐚', bg: '#0369a1', correctSlot: 7 },
+      { id: 8, emoji: '🪸', bg: '#075985', correctSlot: 8 },
+    ],
+  },
+  {
+    id: 'space',
+    label: '太空探險',
+    pieces: [
+      { id: 0, emoji: '🌌', bg: '#0f172a', correctSlot: 0 },
+      { id: 1, emoji: '⭐', bg: '#1e1b4b', correctSlot: 1 },
+      { id: 2, emoji: '🌠', bg: '#312e81', correctSlot: 2 },
+      { id: 3, emoji: '🛰️', bg: '#1e3a8a', correctSlot: 3 },
+      { id: 4, emoji: '🪐', bg: '#a16207', correctSlot: 4 },
+      { id: 5, emoji: '🌍', bg: '#15803d', correctSlot: 5 },
+      { id: 6, emoji: '🚀', bg: '#dc2626', correctSlot: 6 },
+      { id: 7, emoji: '👽', bg: '#84cc16', correctSlot: 7 },
+      { id: 8, emoji: '🌙', bg: '#475569', correctSlot: 8 },
+    ],
+  },
+  {
+    id: 'farm',
+    label: '快樂農場',
+    pieces: [
+      { id: 0, emoji: '☀️', bg: '#fde68a', correctSlot: 0 },
+      { id: 1, emoji: '🌥️', bg: '#cbd5e1', correctSlot: 1 },
+      { id: 2, emoji: '🦋', bg: '#f9a8d4', correctSlot: 2 },
+      { id: 3, emoji: '🐔', bg: '#fbbf24', correctSlot: 3 },
+      { id: 4, emoji: '🐄', bg: '#f5d0fe', correctSlot: 4 },
+      { id: 5, emoji: '🐷', bg: '#fda4af', correctSlot: 5 },
+      { id: 6, emoji: '🌽', bg: '#facc15', correctSlot: 6 },
+      { id: 7, emoji: '🥕', bg: '#f97316', correctSlot: 7 },
+      { id: 8, emoji: '🍅', bg: '#dc2626', correctSlot: 8 },
+    ],
+  },
+  {
+    id: 'forest',
+    label: '森林探索',
+    pieces: [
+      { id: 0, emoji: '🌤️', bg: '#bae6fd', correctSlot: 0 },
+      { id: 1, emoji: '🦅', bg: '#94a3b8', correctSlot: 1 },
+      { id: 2, emoji: '☁️', bg: '#e2e8f0', correctSlot: 2 },
+      { id: 3, emoji: '🌲', bg: '#15803d', correctSlot: 3 },
+      { id: 4, emoji: '🦌', bg: '#a16207', correctSlot: 4 },
+      { id: 5, emoji: '🌳', bg: '#166534', correctSlot: 5 },
+      { id: 6, emoji: '🍄', bg: '#dc2626', correctSlot: 6 },
+      { id: 7, emoji: '🦊', bg: '#ea580c', correctSlot: 7 },
+      { id: 8, emoji: '🌿', bg: '#22c55e', correctSlot: 8 },
+    ],
+  },
+  {
+    id: 'city',
+    label: '城市風景',
+    pieces: [
+      { id: 0, emoji: '🌆', bg: '#f97316', correctSlot: 0 },
+      { id: 1, emoji: '🌇', bg: '#fb923c', correctSlot: 1 },
+      { id: 2, emoji: '✈️', bg: '#fed7aa', correctSlot: 2 },
+      { id: 3, emoji: '🏙️', bg: '#64748b', correctSlot: 3 },
+      { id: 4, emoji: '🏢', bg: '#475569', correctSlot: 4 },
+      { id: 5, emoji: '🏬', bg: '#334155', correctSlot: 5 },
+      { id: 6, emoji: '🚗', bg: '#dc2626', correctSlot: 6 },
+      { id: 7, emoji: '🚌', bg: '#facc15', correctSlot: 7 },
+      { id: 8, emoji: '🚲', bg: '#0ea5e9', correctSlot: 8 },
+    ],
+  },
+  {
+    id: 'food',
+    label: '美食派對',
+    pieces: [
+      { id: 0, emoji: '🍔', bg: '#fbbf24', correctSlot: 0 },
+      { id: 1, emoji: '🍕', bg: '#dc2626', correctSlot: 1 },
+      { id: 2, emoji: '🌭', bg: '#fb923c', correctSlot: 2 },
+      { id: 3, emoji: '🍜', bg: '#fcd34d', correctSlot: 3 },
+      { id: 4, emoji: '🍣', bg: '#fda4af', correctSlot: 4 },
+      { id: 5, emoji: '🥗', bg: '#84cc16', correctSlot: 5 },
+      { id: 6, emoji: '🍰', bg: '#f9a8d4', correctSlot: 6 },
+      { id: 7, emoji: '🍦', bg: '#fef3c7', correctSlot: 7 },
+      { id: 8, emoji: '🍩', bg: '#a78bfa', correctSlot: 8 },
+    ],
+  },
+  {
+    id: 'fruits',
+    label: '水果樂園',
+    pieces: [
+      { id: 0, emoji: '🍎', bg: '#dc2626', correctSlot: 0 },
+      { id: 1, emoji: '🍐', bg: '#84cc16', correctSlot: 1 },
+      { id: 2, emoji: '🍊', bg: '#fb923c', correctSlot: 2 },
+      { id: 3, emoji: '🍌', bg: '#fcd34d', correctSlot: 3 },
+      { id: 4, emoji: '🍇', bg: '#a855f7', correctSlot: 4 },
+      { id: 5, emoji: '🍓', bg: '#f43f5e', correctSlot: 5 },
+      { id: 6, emoji: '🍑', bg: '#fda4af', correctSlot: 6 },
+      { id: 7, emoji: '🍉', bg: '#22c55e', correctSlot: 7 },
+      { id: 8, emoji: '🥝', bg: '#65a30d', correctSlot: 8 },
+    ],
+  },
 ];
+
+function pickPuzzleTheme(levelId: number): PuzzleTheme {
+  const idx = Math.abs(levelId) % PUZZLE_THEMES.length;
+  return PUZZLE_THEMES[idx] ?? PUZZLE_THEMES[0]!;
+}
 
 function shuffleArray<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -644,11 +768,13 @@ function DropSlot({
   placedPieceId,
   onDrop,
   highlightWrong,
+  pieces,
 }: {
   slotIndex: number;
   placedPieceId: number | null;
   onDrop: (pieceId: number, slotIndex: number) => void;
   highlightWrong?: boolean;
+  pieces: PieceData[];
 }) {
   const [{ isOver }, drop] = useDrop({
     accept: PIECE_TYPE,
@@ -657,7 +783,7 @@ function DropSlot({
   });
 
   const pid = normalizePieceId(placedPieceId);
-  const piece = pid !== null ? PIECES_DATA.find(p => p.id === pid) : null;
+  const piece = pid !== null ? pieces.find(p => p.id === pid) : null;
 
   return (
     <div
@@ -715,15 +841,29 @@ function PuzzleTrayStrip({
   );
 }
 
-function JigsawGame({ onComplete, zodiac }: { onComplete: () => void; zodiac?: ZodiacInfo }) {
-  const [slots, setSlots] = useState<(number | null)[]>(Array(9).fill(null));
-  const [tray, setTray] = useState<number[]>(() => shuffleArray(PIECES_DATA.map(p => p.id)));
+function JigsawGame({ onComplete, zodiac, levelId }: { onComplete: () => void; zodiac?: ZodiacInfo; levelId: number }) {
+  // 依 levelId 選一個拼圖主題，整局固定不變
+  const theme = useMemo(() => pickPuzzleTheme(levelId), [levelId]);
+  const pieces = theme.pieces;
+
+  const [slots, setSlots] = useState<(number | null)[]>(() => Array(9).fill(null));
+  const [tray, setTray] = useState<number[]>(() => shuffleArray(pieces.map(p => p.id)));
   const [slotWrong, setSlotWrong] = useState<boolean[]>(() => Array(9).fill(false));
   const [checkHint, setCheckHint] = useState<string | null>(null);
+  const completedRef = useRef(false);
+
+  // theme 換了（理論上不會在同局換，但保險）就重置
+  useEffect(() => {
+    setSlots(Array(9).fill(null));
+    setTray(shuffleArray(pieces.map(p => p.id)));
+    setSlotWrong(Array(9).fill(false));
+    setCheckHint(null);
+    completedRef.current = false;
+  }, [pieces]);
 
   function handleDrop(rawPieceId: number, slotIndex: number) {
     const pieceId = normalizePieceId(rawPieceId);
-    if (pieceId === null || !PIECES_DATA.some(p => p.id === pieceId)) return;
+    if (pieceId === null || !pieces.some(p => p.id === pieceId)) return;
 
     setSlotWrong(Array(9).fill(false));
     setCheckHint(null);
@@ -766,10 +906,10 @@ function JigsawGame({ onComplete, zodiac }: { onComplete: () => void; zodiac?: Z
       return;
     }
 
-    // 以「與參考圖同一格是否同一片」判斷：第 i 格必須是 PIECES_DATA[i]（與 id / 外觀一致）
+    // 以「與參考圖同一格是否同一片」判斷：第 i 格必須是 pieces[i]（與 id / 外觀一致）
     const wrong = normalized.map((id, i) => {
       if (id === null) return true;
-      const meta = PIECES_DATA.find(p => p.id === id);
+      const meta = pieces.find(p => p.id === id);
       if (!meta) return true;
       return meta.correctSlot !== i;
     });
@@ -779,7 +919,10 @@ function JigsawGame({ onComplete, zodiac }: { onComplete: () => void; zodiac?: Z
       setCheckHint('還有些拼圖不在對的位置。可對照小參考圖「由左到右、由上而下」第幾格應是什麼圖示，再拖曳調整。');
       return;
     }
-    setTimeout(onComplete, 450);
+    if (!completedRef.current) {
+      completedRef.current = true;
+      window.setTimeout(onComplete, 450);
+    }
   }
 
   const placedCount = slots.filter(id => id !== null).length;
@@ -789,9 +932,12 @@ function JigsawGame({ onComplete, zodiac }: { onComplete: () => void; zodiac?: Z
       <div data-dnd-root className="flex flex-col h-full px-4 pb-3 overflow-y-auto overscroll-contain">
         {/* Progress + compact reference */}
         <div className="flex flex-col items-center gap-2 py-2 flex-shrink-0">
+          <div className="text-white/80" style={{ fontWeight: 800, fontSize: 13 }}>
+            🧩 主題：{theme.label}
+          </div>
           <div className="rounded-xl overflow-hidden border border-white/30 shadow-md flex-shrink-0" style={{ width: 110 }}>
             <div className="grid grid-cols-3 gap-px p-px bg-white/20">
-              {PIECES_DATA.map(p => (
+              {pieces.map(p => (
                 <div key={p.id} className="flex items-center justify-center" style={{ background: p.bg, aspectRatio: '1', fontSize: '14px' }}>
                   {p.emoji}
                 </div>
@@ -823,6 +969,7 @@ function JigsawGame({ onComplete, zodiac }: { onComplete: () => void; zodiac?: Z
                 placedPieceId={slots[i]}
                 onDrop={handleDrop}
                 highlightWrong={slotWrong[i]}
+                pieces={pieces}
               />
             ))}
           </div>
@@ -862,7 +1009,8 @@ function JigsawGame({ onComplete, zodiac }: { onComplete: () => void; zodiac?: Z
           </div>
           <PuzzleTrayStrip onReturnPiece={returnPieceToTray}>
             {tray.map(id => {
-              const piece = PIECES_DATA.find(p => p.id === id)!;
+              const piece = pieces.find(p => p.id === id);
+              if (!piece) return null;
               return <DraggablePiece key={id} piece={piece} inTray={true} />;
             })}
             {tray.length === 0 && (
@@ -1130,39 +1278,75 @@ function OrderSortGame({ onComplete, zodiac }: { onComplete: () => void; zodiac?
 }
 
 // ===================== MEMORY DROP =====================
-interface MemoryItemData {
+interface MemoryItem {
   id: number;
   emoji: string;
-  slotIndex: number;
 }
 
-const MEMORY_ITEMS: MemoryItemData[] = [
-  { id: 0, emoji: '💧', slotIndex: 0 },
-  { id: 1, emoji: '🌵', slotIndex: 1 },
-  { id: 2, emoji: '🐪', slotIndex: 2 },
+interface MemoryTheme {
+  id: string;
+  label: string;
+  /** items[i] 即第 i 格的正解 */
+  items: MemoryItem[];
+}
+
+const MEMORY_THEMES: MemoryTheme[] = [
+  { id: 'sahara', label: '沙漠之旅', items: [
+    { id: 0, emoji: '💧' }, { id: 1, emoji: '🌵' }, { id: 2, emoji: '🐪' }, { id: 3, emoji: '🌞' },
+  ]},
+  { id: 'ocean', label: '海洋探險', items: [
+    { id: 0, emoji: '🐙' }, { id: 1, emoji: '🐠' }, { id: 2, emoji: '🐬' }, { id: 3, emoji: '⚓' },
+  ]},
+  { id: 'space', label: '太空旅程', items: [
+    { id: 0, emoji: '🚀' }, { id: 1, emoji: '🪐' }, { id: 2, emoji: '👽' }, { id: 3, emoji: '⭐' },
+  ]},
+  { id: 'forest', label: '森林冒險', items: [
+    { id: 0, emoji: '🌳' }, { id: 1, emoji: '🍄' }, { id: 2, emoji: '🦊' }, { id: 3, emoji: '🐝' },
+  ]},
+  { id: 'food', label: '美食派對', items: [
+    { id: 0, emoji: '🍎' }, { id: 1, emoji: '🍕' }, { id: 2, emoji: '🍰' }, { id: 3, emoji: '🥤' },
+  ]},
+  { id: 'farm', label: '農場一日', items: [
+    { id: 0, emoji: '🐄' }, { id: 1, emoji: '🐔' }, { id: 2, emoji: '🐷' }, { id: 3, emoji: '🌽' },
+  ]},
+  { id: 'weather', label: '天氣變化', items: [
+    { id: 0, emoji: '☀️' }, { id: 1, emoji: '⛅' }, { id: 2, emoji: '🌧️' }, { id: 3, emoji: '⛄' },
+  ]},
+  { id: 'transport', label: '交通工具', items: [
+    { id: 0, emoji: '🚗' }, { id: 1, emoji: '🚲' }, { id: 2, emoji: '✈️' }, { id: 3, emoji: '🚢' },
+  ]},
 ];
 
-const MEMORY_SHOW_MS = 3200;
+/** 記憶階段顯示秒數（從 3.2 秒延長到 5.5 秒） */
+const MEMORY_SHOW_MS = 5500;
+/** 解答時限（秒） */
+const MEMORY_PLAY_LIMIT_MS = 30000;
+/** 時間到後自動 reveal 每個答案的間隔 */
+const MEMORY_REVEAL_STEP_MS = 380;
 
-function MemoryDraggable({ item }: { item: MemoryItemData }) {
+type MemoryPhase = 'memorize' | 'play' | 'revealing' | 'timeout';
+
+function MemoryDraggable({ item, disabled }: { item: MemoryItem; disabled?: boolean }) {
   const [{ isDragging }, drag] = useDrag({
     type: MEMORY_ITEM_TYPE,
     item: { id: item.id },
+    canDrag: () => !disabled,
     collect: monitor => ({ isDragging: monitor.isDragging() }),
   });
 
   return (
     <div
       ref={drag as any}
-      className="rounded-xl flex flex-col items-center justify-center cursor-grab active:cursor-grabbing select-none"
+      className="rounded-xl flex flex-col items-center justify-center select-none"
       style={{
         background: 'linear-gradient(135deg, rgba(255,212,59,0.25), rgba(255,146,43,0.15))',
-        opacity: isDragging ? 0.45 : 1,
+        opacity: isDragging ? 0.45 : disabled ? 0.7 : 1,
         width: 68,
         minHeight: 76,
         fontSize: 34,
         border: '2px solid rgba(255,255,255,0.4)',
         touchAction: 'none',
+        cursor: disabled ? 'default' : 'grab',
       }}
     >
       {item.emoji}
@@ -1175,15 +1359,20 @@ function MemoryDropSlot({
   placedId,
   phase,
   revealedEmoji,
+  themeItems,
   onDrop,
   highlightWrong,
+  highlightReveal,
 }: {
   slotIndex: number;
   placedId: number | null;
-  phase: 'memorize' | 'play';
+  phase: MemoryPhase;
   revealedEmoji: string | null;
+  themeItems: MemoryItem[];
   onDrop: (itemId: number, slotIndex: number) => void;
   highlightWrong?: boolean;
+  /** true 時用綠框強調該格剛被解答動畫填上 */
+  highlightReveal?: boolean;
 }) {
   const [{ isOver }, drop] = useDrop({
     accept: MEMORY_ITEM_TYPE,
@@ -1192,7 +1381,7 @@ function MemoryDropSlot({
     collect: monitor => ({ isOver: monitor.isOver() }),
   });
 
-  const itemData = placedId !== null ? MEMORY_ITEMS.find(m => m.id === placedId) : null;
+  const itemData = placedId !== null ? themeItems.find(m => m.id === placedId) : null;
   const showPeek = phase === 'memorize' && revealedEmoji;
 
   return (
@@ -1202,7 +1391,9 @@ function MemoryDropSlot({
       style={{
         width: 'min(92px, 22vw)',
         minHeight: 100,
-        border: highlightWrong
+        border: highlightReveal
+          ? '2px solid rgba(74,222,128,0.95)'
+          : highlightWrong
           ? '2px solid rgba(255,107,107,0.9)'
           : isOver && phase === 'play'
           ? '2px dashed rgba(255,255,255,0.95)'
@@ -1210,6 +1401,8 @@ function MemoryDropSlot({
         background:
           phase === 'memorize'
             ? 'rgba(255,255,255,0.14)'
+            : highlightReveal
+            ? 'rgba(74,222,128,0.18)'
             : isOver && phase === 'play'
             ? 'rgba(255,255,255,0.18)'
             : 'rgba(0,0,0,0.12)',
@@ -1223,8 +1416,10 @@ function MemoryDropSlot({
           {revealedEmoji}
         </motion.span>
       )}
-      {phase === 'play' && !showPeek && itemData && <MemoryDraggable item={itemData} />}
-      {phase === 'play' && !itemData && (
+      {phase !== 'memorize' && itemData && (
+        <MemoryDraggable item={itemData} disabled={phase !== 'play'} />
+      )}
+      {(phase === 'play' || phase === 'revealing' || phase === 'timeout') && !itemData && (
         <span className="text-white/35" style={{ fontSize: 28, fontWeight: 900 }}>
           ?
         </span>
@@ -1260,24 +1455,80 @@ function MemoryTrayStrip({
   );
 }
 
-function MemoryMatchGame({ onComplete, zodiac }: { onComplete: () => void; zodiac?: ZodiacInfo }) {
-  const [phase, setPhase] = useState<'memorize' | 'play'>('memorize');
-  const [slots, setSlots] = useState<(number | null)[]>(() => Array(MEMORY_ITEMS.length).fill(null));
+function MemoryMatchGame({ onComplete, zodiac, levelId }: { onComplete: () => void; zodiac?: ZodiacInfo; levelId: number }) {
+  // 依 levelId 選一個主題，整局固定不變
+  const theme = useMemo(
+    () => MEMORY_THEMES[Math.abs(levelId) % MEMORY_THEMES.length] ?? MEMORY_THEMES[0]!,
+    [levelId],
+  );
+  const themeItems = theme.items;
+  const slotCount = themeItems.length;
+
+  const [phase, setPhase] = useState<MemoryPhase>('memorize');
+  const [slots, setSlots] = useState<(number | null)[]>(() => Array(slotCount).fill(null));
   const [tray, setTray] = useState<number[]>([]);
   const [checkHint, setCheckHint] = useState<string | null>(null);
-  const [slotWrong, setSlotWrong] = useState<boolean[]>(() => Array(MEMORY_ITEMS.length).fill(false));
+  const [slotWrong, setSlotWrong] = useState<boolean[]>(() => Array(slotCount).fill(false));
+  /** revealing 階段：每個 slot 是否已被解答動畫填上 */
+  const [revealedSlots, setRevealedSlots] = useState<boolean[]>(() => Array(slotCount).fill(false));
+  /** 解題剩餘秒數 */
+  const [secLeft, setSecLeft] = useState(Math.floor(MEMORY_PLAY_LIMIT_MS / 1000));
+  /** 一次性鎖：避免 onComplete 被多次觸發 */
+  const completedRef = useRef(false);
 
+  // memorize → play 切換
   useEffect(() => {
     const t = window.setTimeout(() => {
       setPhase('play');
-      setTray(shuffleArray(MEMORY_ITEMS.map(m => m.id)));
+      setTray(shuffleArray(themeItems.map(m => m.id)));
     }, MEMORY_SHOW_MS);
-    return () => clearTimeout(t);
-  }, []);
+    return () => window.clearTimeout(t);
+  }, [themeItems]);
+
+  // play 倒數計時
+  useEffect(() => {
+    if (phase !== 'play') return;
+    if (secLeft <= 0) {
+      // 進入 revealing：動畫展示解答
+      setPhase('revealing');
+      startReveal();
+      return;
+    }
+    const t = window.setTimeout(() => setSecLeft(s => s - 1), 1000);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, secLeft]);
+
+  function startReveal() {
+    // 把當前未在正確位置的 item 依序放回正確位置
+    themeItems.forEach((it, i) => {
+      window.setTimeout(() => {
+        setSlots(prev => {
+          const next = [...prev];
+          // 若該 item 在別處，把它搬走
+          const cur = next.indexOf(it.id);
+          if (cur !== -1) next[cur] = null;
+          next[i] = it.id;
+          return next;
+        });
+        setTray(t => t.filter(id => id !== it.id));
+        setRevealedSlots(prev => {
+          const next = [...prev];
+          next[i] = true;
+          return next;
+        });
+      }, i * MEMORY_REVEAL_STEP_MS);
+    });
+    // 全部展示完 → 進 timeout 狀態，等使用者按按鈕
+    window.setTimeout(() => {
+      setPhase('timeout');
+    }, themeItems.length * MEMORY_REVEAL_STEP_MS + 600);
+  }
 
   function handleDrop(itemId: number, slotIndex: number) {
+    if (phase !== 'play') return;
     setCheckHint(null);
-    setSlotWrong(Array(MEMORY_ITEMS.length).fill(false));
+    setSlotWrong(Array(slotCount).fill(false));
 
     setSlots(prev => {
       const next = [...prev];
@@ -1299,7 +1550,7 @@ function MemoryMatchGame({ onComplete, zodiac }: { onComplete: () => void; zodia
   function returnItemToTray(itemId: number) {
     if (phase !== 'play') return;
     setCheckHint(null);
-    setSlotWrong(Array(MEMORY_ITEMS.length).fill(false));
+    setSlotWrong(Array(slotCount).fill(false));
     setSlots(prev => {
       const next = [...prev];
       const idx = next.indexOf(itemId);
@@ -1311,26 +1562,60 @@ function MemoryMatchGame({ onComplete, zodiac }: { onComplete: () => void; zodia
 
   function handleCheck() {
     if (phase !== 'play') return;
-    setSlotWrong(Array(MEMORY_ITEMS.length).fill(false));
+    setSlotWrong(Array(slotCount).fill(false));
     setCheckHint(null);
     if (!slots.every(id => id !== null)) {
-      setCheckHint('請先把三個圖標都放進格子裡，再按「檢查」。');
+      setCheckHint(`請先把 ${slotCount} 個圖標都放進格子裡，再按「檢查」。`);
       return;
     }
-    const wrong = slots.map((id, i) => MEMORY_ITEMS.find(m => m.id === id)!.slotIndex !== i);
+    // items[i] 即第 i 格的正解，所以 slots[i] 應該 === themeItems[i].id
+    const wrong = slots.map((id, i) => id !== themeItems[i].id);
     if (wrong.some(Boolean)) {
       setSlotWrong(wrong);
       setCheckHint('有些位置和記憶中的不一樣喔！拖曳調整後再按檢查。');
       return;
     }
-    setTimeout(onComplete, 500);
+    if (!completedRef.current) {
+      completedRef.current = true;
+      window.setTimeout(onComplete, 500);
+    }
   }
+
+  /** 危險度顏色：剩餘秒數越少越紅 */
+  const timeColor = secLeft > 10 ? '#86efac' : secLeft > 5 ? '#fde047' : '#fca5a5';
 
   return (
     <DndProvider backend={TouchBackend} options={DND_OPTIONS}>
       <div data-dnd-root className="flex flex-col h-full px-4 pb-3 overflow-y-auto overscroll-contain">
-        <div className="text-center pt-2 pb-2" style={{ fontWeight: 900, fontSize: 15, color: 'rgba(255,255,255,0.88)' }}>
-          {phase === 'memorize' ? '先看清楚⋯ 等等格子會遮住，要靠記憶拖回去！' : '憑記憶把圖標拖回原位 — 排好後按檢查'}
+        {/* 標題列：主題 + 倒數 */}
+        <div className="flex items-center justify-between gap-2 pt-2 pb-1">
+          <div className="text-white/75" style={{ fontWeight: 800, fontSize: 13 }}>
+            🧠 主題：{theme.label}
+          </div>
+          {(phase === 'play' || phase === 'revealing' || phase === 'timeout') && (
+            <div
+              className="tabular-nums px-2 py-0.5 rounded-lg"
+              style={{
+                color: timeColor,
+                fontWeight: 900,
+                fontSize: 14,
+                background: 'rgba(0,0,0,0.35)',
+                border: `1px solid ${timeColor}55`,
+              }}
+            >
+              ⏱ {Math.max(0, secLeft)}s
+            </div>
+          )}
+        </div>
+
+        <div className="text-center pb-1" style={{ fontWeight: 900, fontSize: 15, color: 'rgba(255,255,255,0.88)' }}>
+          {phase === 'memorize'
+            ? '先看清楚⋯ 等等格子會遮住，要靠記憶拖回去！'
+            : phase === 'play'
+            ? '憑記憶把圖標拖回原位 — 排好後按檢查'
+            : phase === 'revealing'
+            ? '⏰ 時間到！讓我們看看正確答案…'
+            : '正解就是這樣 ✨'}
         </div>
 
         {zodiac && (
@@ -1344,16 +1629,18 @@ function MemoryMatchGame({ onComplete, zodiac }: { onComplete: () => void; zodia
           </div>
         )}
 
-        <div className="flex justify-center gap-4 flex-wrap my-4">
-          {MEMORY_ITEMS.map((m, slotIndex) => (
+        <div className="flex justify-center gap-3 flex-wrap my-3">
+          {themeItems.map((m, slotIndex) => (
             <MemoryDropSlot
               key={slotIndex}
               slotIndex={slotIndex}
               placedId={slots[slotIndex]}
               phase={phase}
               revealedEmoji={m.emoji}
+              themeItems={themeItems}
               onDrop={handleDrop}
               highlightWrong={phase === 'play' ? slotWrong[slotIndex] : false}
+              highlightReveal={(phase === 'revealing' || phase === 'timeout') && revealedSlots[slotIndex]}
             />
           ))}
         </div>
@@ -1398,18 +1685,72 @@ function MemoryMatchGame({ onComplete, zodiac }: { onComplete: () => void; zodia
           </div>
         )}
 
+        {phase === 'timeout' && (
+          <motion.div
+            className="mx-auto rounded-2xl px-4 py-3 mb-2 max-w-md text-center"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{ background: 'rgba(74,222,128,0.18)', border: '1px solid rgba(74,222,128,0.45)' }}
+          >
+            <div className="text-emerald-100" style={{ fontWeight: 900, fontSize: 14 }}>
+              ⏰ 時間到了，下次更專心一定可以記住！
+            </div>
+            <div className="text-white/70 mt-1" style={{ fontWeight: 700, fontSize: 12 }}>
+              這是正解的位置，可以再玩一次或進入下一關
+            </div>
+          </motion.div>
+        )}
+
+        {phase === 'timeout' && (
+          <div className="flex justify-center gap-3 mb-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => {
+                // 重玩此關
+                completedRef.current = false;
+                setPhase('memorize');
+                setSlots(Array(slotCount).fill(null));
+                setTray([]);
+                setSlotWrong(Array(slotCount).fill(false));
+                setRevealedSlots(Array(slotCount).fill(false));
+                setCheckHint(null);
+                setSecLeft(Math.floor(MEMORY_PLAY_LIMIT_MS / 1000));
+              }}
+              className="px-6 py-3 rounded-2xl text-white shadow-lg active:scale-[0.99] transition-transform"
+              style={{ background: 'linear-gradient(135deg, #6366f1, #2563eb)', fontWeight: 900, fontSize: 14 }}
+            >
+              再玩一次
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!completedRef.current) {
+                  completedRef.current = true;
+                  onComplete();
+                }
+              }}
+              className="px-6 py-3 rounded-2xl text-white shadow-lg active:scale-[0.99] transition-transform"
+              style={{ background: 'linear-gradient(135deg, #20c997, #4dabf7)', fontWeight: 900, fontSize: 14 }}
+            >
+              進入下一關
+            </button>
+          </div>
+        )}
+
         {phase === 'play' && (
           <>
             <div className="text-center text-white/45 mb-2" style={{ fontSize: 12, fontWeight: 800 }}>
               拖曳到對應格子 · 可拖回下方取下再重放
             </div>
             <MemoryTrayStrip onReturnItem={returnItemToTray}>
-              {tray.map(id => (
-                <MemoryDraggable key={id} item={MEMORY_ITEMS.find(m => m.id === id)!} />
-              ))}
+              {tray.map(id => {
+                const item = themeItems.find(m => m.id === id);
+                if (!item) return null;
+                return <MemoryDraggable key={id} item={item} />;
+              })}
               {tray.length === 0 && (
                 <div className="text-white/35 py-2" style={{ fontWeight: 800, fontSize: 13 }}>
-                  三個圖標都在格子裡 — 需要改可拖回這裡
+                  {slotCount} 個圖標都在格子裡 — 需要改可拖回這裡
                 </div>
               )}
             </MemoryTrayStrip>
@@ -1424,7 +1765,7 @@ function MemoryMatchGame({ onComplete, zodiac }: { onComplete: () => void; zodia
 export default function Gameplay() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { setLastGameScore, setCompletedLevels, completedLevels, currentLevel, setCurrentLevel, totalStars, setTotalStars, distractorLevel, collectedLevelIds, setCollectedLevelIds } = useApp();
+  const { setLastGameScore, setCompletedLevels, completedLevels, currentLevel, setCurrentLevel, totalStars, setTotalStars, distractorLevel, collectedLevelIds, setCollectedLevelIds, soundHintEnabled } = useApp();
 
   const rawMode = searchParams.get('mode');
   const mode: LevelMode =
@@ -1481,6 +1822,15 @@ export default function Gameplay() {
       setShowDistracted(true);
     }
   }, [paused, distractorLevel, hasFace, isLookingAtScreen, showStory, gameComplete]);
+
+  // 視線分心提示音：showDistracted 從 false → true 時播一次
+  const prevDistractedRef = useRef(false);
+  useEffect(() => {
+    if (showDistracted && !prevDistractedRef.current && soundHintEnabled) {
+      playDistractAlert();
+    }
+    prevDistractedRef.current = showDistracted;
+  }, [showDistracted, soundHintEnabled]);
 
   function handleComplete() {
     setGameComplete(true);
@@ -1550,7 +1900,10 @@ export default function Gameplay() {
               </div>
 
               <button
-                onClick={() => setShowStory(false)}
+                onClick={() => {
+                  primeDistractAlert();
+                  setShowStory(false);
+                }}
                 className="mt-6 w-full py-3 rounded-2xl text-white transition-all active:scale-[0.99]"
                 style={{ background: 'linear-gradient(135deg, #20c997, #4dabf7)', fontWeight: 900, fontSize: '16px' }}
               >
@@ -1659,11 +2012,11 @@ export default function Gameplay() {
         {mode === 'spot' ? (
           <PhotoHuntSpotDiff onComplete={handleComplete} levelId={levelMeta.id ?? level} />
         ) : mode === 'jigsaw' ? (
-          <JigsawGame onComplete={handleComplete} zodiac={levelMeta.zodiac} />
+          <JigsawGame onComplete={handleComplete} zodiac={levelMeta.zodiac} levelId={levelMeta.id ?? level} />
         ) : mode === 'order' ? (
           <OrderSortGame onComplete={handleComplete} zodiac={levelMeta.zodiac} />
         ) : (
-          <MemoryMatchGame onComplete={handleComplete} zodiac={levelMeta.zodiac} />
+          <MemoryMatchGame onComplete={handleComplete} zodiac={levelMeta.zodiac} levelId={levelMeta.id ?? level} />
         )}
       </div>
 

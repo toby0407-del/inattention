@@ -181,6 +181,8 @@ export default function PhotoHuntSpotDiff({ levelId, onComplete, seconds = 40 }:
   const [found, setFound] = useState(() => new Set<number>());
   const [secLeft, setSecLeft] = useState(seconds);
   const [ended, setEnded] = useState(false);
+  // 一次性完成鎖：避免 useEffect cleanup 把 onComplete 的 timeout 取消掉
+  const completeFiredRef = useRef(false);
 
   // scale to fit container width (keep hotspots in original px-space)
   useEffect(() => {
@@ -199,6 +201,7 @@ export default function PhotoHuntSpotDiff({ levelId, onComplete, seconds = 40 }:
     setFound(new Set());
     setSecLeft(seconds);
     setEnded(false);
+    completeFiredRef.current = false;
   }, [levelId, seconds]);
 
   // timer
@@ -218,16 +221,16 @@ export default function PhotoHuntSpotDiff({ levelId, onComplete, seconds = 40 }:
     return () => window.clearInterval(t);
   }, [ended]);
 
-  // win condition
+  // win condition：完成過就不再重排，避免 cleanup 取消 timeout
   useEffect(() => {
-    if (ended) return;
+    if (completeFiredRef.current) return;
     if (found.size >= 6) {
+      completeFiredRef.current = true;
       setEnded(true);
-      // small delay for last circle render
-      const id = window.setTimeout(() => onComplete(), 450);
-      return () => window.clearTimeout(id);
+      // 不設 cleanup 的 clearTimeout，否則下一輪 effect 會把它取消掉
+      window.setTimeout(() => onComplete(), 450);
     }
-  }, [ended, found, onComplete]);
+  }, [found, onComplete]);
 
   function markFound(n: number) {
     setFound(prev => {
@@ -358,6 +361,7 @@ export default function PhotoHuntSpotDiff({ levelId, onComplete, seconds = 40 }:
               setFound(new Set());
               setSecLeft(seconds);
               setEnded(false);
+              completeFiredRef.current = false;
             }}
             className="px-5 py-2.5 rounded-2xl text-white shadow-lg active:scale-[0.99] transition-transform"
             style={{ background: 'linear-gradient(135deg, #6366f1, #2563eb)', fontWeight: 900, fontSize: 14 }}
