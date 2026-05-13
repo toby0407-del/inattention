@@ -577,141 +577,42 @@ function SpotDiff({ onComplete, zodiac, levelId }: { onComplete: () => void; zod
 
 // ===================== JIGSAW PUZZLE =====================
 interface PieceData {
-  id: number;
-  emoji: string;
-  bg: string;
+  id: number;        // 0-8，同時等於 correctSlot
   correctSlot: number;
 }
 
 interface PuzzleTheme {
   id: string;
   label: string;
-  /** 9 片 emoji，依序對應第 0..8 格（3×3 由左至右、由上至下） */
+  imageUrl: string;
   pieces: PieceData[];
 }
 
-/** 各主題 9 片拼圖。每片 id===correctSlot，跟陣列 index 對齊以簡化判斷。 */
+function makePieces(): PieceData[] {
+  return Array.from({ length: 9 }, (_, i) => ({ id: i, correctSlot: i }));
+}
+
 const PUZZLE_THEMES: PuzzleTheme[] = [
-  {
-    id: 'sunny',
-    label: '風和日麗',
-    pieces: [
-      { id: 0, emoji: '🌤️', bg: '#87ceeb', correctSlot: 0 },
-      { id: 1, emoji: '☀️', bg: '#FFD700', correctSlot: 1 },
-      { id: 2, emoji: '⛅', bg: '#a0d8ef', correctSlot: 2 },
-      { id: 3, emoji: '🌿', bg: '#7ec8a0', correctSlot: 3 },
-      { id: 4, emoji: '🏠', bg: '#f0c080', correctSlot: 4 },
-      { id: 5, emoji: '🍃', bg: '#8bc48a', correctSlot: 5 },
-      { id: 6, emoji: '🌱', bg: '#5a9e3a', correctSlot: 6 },
-      { id: 7, emoji: '🌻', bg: '#4caf50', correctSlot: 7 },
-      { id: 8, emoji: '🌳', bg: '#45a049', correctSlot: 8 },
-    ],
-  },
-  {
-    id: 'ocean',
-    label: '海底世界',
-    pieces: [
-      { id: 0, emoji: '☁️', bg: '#c5e7ff', correctSlot: 0 },
-      { id: 1, emoji: '☀️', bg: '#fde68a', correctSlot: 1 },
-      { id: 2, emoji: '🪁', bg: '#fbcfe8', correctSlot: 2 },
-      { id: 3, emoji: '🌊', bg: '#60a5fa', correctSlot: 3 },
-      { id: 4, emoji: '🐬', bg: '#3b82f6', correctSlot: 4 },
-      { id: 5, emoji: '⛵', bg: '#1e40af', correctSlot: 5 },
-      { id: 6, emoji: '🐠', bg: '#0ea5e9', correctSlot: 6 },
-      { id: 7, emoji: '🐚', bg: '#0369a1', correctSlot: 7 },
-      { id: 8, emoji: '🪸', bg: '#075985', correctSlot: 8 },
-    ],
-  },
-  {
-    id: 'space',
-    label: '太空探險',
-    pieces: [
-      { id: 0, emoji: '🌌', bg: '#0f172a', correctSlot: 0 },
-      { id: 1, emoji: '⭐', bg: '#1e1b4b', correctSlot: 1 },
-      { id: 2, emoji: '🌠', bg: '#312e81', correctSlot: 2 },
-      { id: 3, emoji: '🛰️', bg: '#1e3a8a', correctSlot: 3 },
-      { id: 4, emoji: '🪐', bg: '#a16207', correctSlot: 4 },
-      { id: 5, emoji: '🌍', bg: '#15803d', correctSlot: 5 },
-      { id: 6, emoji: '🚀', bg: '#dc2626', correctSlot: 6 },
-      { id: 7, emoji: '👽', bg: '#84cc16', correctSlot: 7 },
-      { id: 8, emoji: '🌙', bg: '#475569', correctSlot: 8 },
-    ],
-  },
-  {
-    id: 'farm',
-    label: '快樂農場',
-    pieces: [
-      { id: 0, emoji: '☀️', bg: '#fde68a', correctSlot: 0 },
-      { id: 1, emoji: '🌥️', bg: '#cbd5e1', correctSlot: 1 },
-      { id: 2, emoji: '🦋', bg: '#f9a8d4', correctSlot: 2 },
-      { id: 3, emoji: '🐔', bg: '#fbbf24', correctSlot: 3 },
-      { id: 4, emoji: '🐄', bg: '#f5d0fe', correctSlot: 4 },
-      { id: 5, emoji: '🐷', bg: '#fda4af', correctSlot: 5 },
-      { id: 6, emoji: '🌽', bg: '#facc15', correctSlot: 6 },
-      { id: 7, emoji: '🥕', bg: '#f97316', correctSlot: 7 },
-      { id: 8, emoji: '🍅', bg: '#dc2626', correctSlot: 8 },
-    ],
-  },
-  {
-    id: 'forest',
-    label: '森林探索',
-    pieces: [
-      { id: 0, emoji: '🌤️', bg: '#bae6fd', correctSlot: 0 },
-      { id: 1, emoji: '🦅', bg: '#94a3b8', correctSlot: 1 },
-      { id: 2, emoji: '☁️', bg: '#e2e8f0', correctSlot: 2 },
-      { id: 3, emoji: '🌲', bg: '#15803d', correctSlot: 3 },
-      { id: 4, emoji: '🦌', bg: '#a16207', correctSlot: 4 },
-      { id: 5, emoji: '🌳', bg: '#166534', correctSlot: 5 },
-      { id: 6, emoji: '🍄', bg: '#dc2626', correctSlot: 6 },
-      { id: 7, emoji: '🦊', bg: '#ea580c', correctSlot: 7 },
-      { id: 8, emoji: '🌿', bg: '#22c55e', correctSlot: 8 },
-    ],
-  },
-  {
-    id: 'city',
-    label: '城市風景',
-    pieces: [
-      { id: 0, emoji: '🌆', bg: '#f97316', correctSlot: 0 },
-      { id: 1, emoji: '🌇', bg: '#fb923c', correctSlot: 1 },
-      { id: 2, emoji: '✈️', bg: '#fed7aa', correctSlot: 2 },
-      { id: 3, emoji: '🏙️', bg: '#64748b', correctSlot: 3 },
-      { id: 4, emoji: '🏢', bg: '#475569', correctSlot: 4 },
-      { id: 5, emoji: '🏬', bg: '#334155', correctSlot: 5 },
-      { id: 6, emoji: '🚗', bg: '#dc2626', correctSlot: 6 },
-      { id: 7, emoji: '🚌', bg: '#facc15', correctSlot: 7 },
-      { id: 8, emoji: '🚲', bg: '#0ea5e9', correctSlot: 8 },
-    ],
-  },
-  {
-    id: 'food',
-    label: '美食派對',
-    pieces: [
-      { id: 0, emoji: '🍔', bg: '#fbbf24', correctSlot: 0 },
-      { id: 1, emoji: '🍕', bg: '#dc2626', correctSlot: 1 },
-      { id: 2, emoji: '🌭', bg: '#fb923c', correctSlot: 2 },
-      { id: 3, emoji: '🍜', bg: '#fcd34d', correctSlot: 3 },
-      { id: 4, emoji: '🍣', bg: '#fda4af', correctSlot: 4 },
-      { id: 5, emoji: '🥗', bg: '#84cc16', correctSlot: 5 },
-      { id: 6, emoji: '🍰', bg: '#f9a8d4', correctSlot: 6 },
-      { id: 7, emoji: '🍦', bg: '#fef3c7', correctSlot: 7 },
-      { id: 8, emoji: '🍩', bg: '#a78bfa', correctSlot: 8 },
-    ],
-  },
-  {
-    id: 'fruits',
-    label: '水果樂園',
-    pieces: [
-      { id: 0, emoji: '🍎', bg: '#dc2626', correctSlot: 0 },
-      { id: 1, emoji: '🍐', bg: '#84cc16', correctSlot: 1 },
-      { id: 2, emoji: '🍊', bg: '#fb923c', correctSlot: 2 },
-      { id: 3, emoji: '🍌', bg: '#fcd34d', correctSlot: 3 },
-      { id: 4, emoji: '🍇', bg: '#a855f7', correctSlot: 4 },
-      { id: 5, emoji: '🍓', bg: '#f43f5e', correctSlot: 5 },
-      { id: 6, emoji: '🍑', bg: '#fda4af', correctSlot: 6 },
-      { id: 7, emoji: '🍉', bg: '#22c55e', correctSlot: 7 },
-      { id: 8, emoji: '🥝', bg: '#65a30d', correctSlot: 8 },
-    ],
-  },
+  { id: 'img01', label: '場景一',   imageUrl: '/puzzle-images/image-01.webp', pieces: makePieces() },
+  { id: 'img02', label: '場景二',   imageUrl: '/puzzle-images/image-02.webp', pieces: makePieces() },
+  { id: 'img03', label: '場景三',   imageUrl: '/puzzle-images/image-03.webp', pieces: makePieces() },
+  { id: 'img04', label: '場景四',   imageUrl: '/puzzle-images/image-04.webp', pieces: makePieces() },
+  { id: 'img05', label: '場景五',   imageUrl: '/puzzle-images/image-05.webp', pieces: makePieces() },
+  { id: 'img06', label: '場景六',   imageUrl: '/puzzle-images/image-06.webp', pieces: makePieces() },
+  { id: 'img07', label: '場景七',   imageUrl: '/puzzle-images/image-07.webp', pieces: makePieces() },
+  { id: 'img08', label: '場景八',   imageUrl: '/puzzle-images/image-08.webp', pieces: makePieces() },
+  { id: 'img09', label: '場景九',   imageUrl: '/puzzle-images/image-09.webp', pieces: makePieces() },
+  { id: 'img10', label: '場景十',   imageUrl: '/puzzle-images/image-10.webp', pieces: makePieces() },
+  { id: 'img11', label: '場景十一', imageUrl: '/puzzle-images/image-11.webp', pieces: makePieces() },
+  { id: 'img12', label: '場景十二', imageUrl: '/puzzle-images/image-12.webp', pieces: makePieces() },
+  { id: 'img13', label: '場景十三', imageUrl: '/puzzle-images/image-13.webp', pieces: makePieces() },
+  { id: 'img14', label: '場景十四', imageUrl: '/puzzle-images/image-14.webp', pieces: makePieces() },
+  { id: 'img15', label: '場景十五', imageUrl: '/puzzle-images/image-15.webp', pieces: makePieces() },
+  { id: 'img16', label: '場景十六', imageUrl: '/puzzle-images/image-16.webp', pieces: makePieces() },
+  { id: 'img17', label: '場景十七', imageUrl: '/puzzle-images/image-17.webp', pieces: makePieces() },
+  { id: 'img18', label: '場景十八', imageUrl: '/puzzle-images/image-18.webp', pieces: makePieces() },
+  { id: 'img19', label: '場景十九', imageUrl: '/puzzle-images/image-19.webp', pieces: makePieces() },
+  { id: 'img20', label: '場景二十', imageUrl: '/puzzle-images/image-20.webp', pieces: makePieces() },
 ];
 
 function pickPuzzleTheme(levelId: number): PuzzleTheme {
@@ -736,7 +637,20 @@ function normalizePieceId(raw: unknown): number | null {
   return n;
 }
 
-function DraggablePiece({ piece, inTray }: { piece: PieceData; inTray: boolean }) {
+function pieceSliceStyle(pieceId: number, imageUrl: string): React.CSSProperties {
+  const col = pieceId % 3;
+  const row = Math.floor(pieceId / 3);
+  const posX = col === 0 ? '0%' : col === 1 ? '50%' : '100%';
+  const posY = row === 0 ? '0%' : row === 1 ? '50%' : '100%';
+  return {
+    backgroundImage: `url(${imageUrl})`,
+    backgroundSize: '300% 300%',
+    backgroundPosition: `${posX} ${posY}`,
+    backgroundRepeat: 'no-repeat',
+  };
+}
+
+function DraggablePiece({ piece, inTray, imageUrl }: { piece: PieceData; inTray: boolean; imageUrl: string }) {
   const [{ isDragging }, drag] = useDrag({
     type: PIECE_TYPE,
     item: { id: piece.id },
@@ -746,20 +660,18 @@ function DraggablePiece({ piece, inTray }: { piece: PieceData; inTray: boolean }
   return (
     <div
       ref={drag as any}
-      className="rounded-xl flex items-center justify-center cursor-grab active:cursor-grabbing select-none transition-all"
+      className="rounded-xl cursor-grab active:cursor-grabbing select-none transition-all"
       style={{
-        background: piece.bg,
+        ...pieceSliceStyle(piece.id, imageUrl),
         opacity: isDragging ? 0.4 : 1,
-        width: inTray ? '56px' : '100%',
-        height: inTray ? '56px' : '100%',
-        fontSize: inTray ? '28px' : '32px',
+        width: inTray ? '64px' : '100%',
+        height: inTray ? '48px' : '100%',
         border: '2px solid rgba(255,255,255,0.5)',
         boxShadow: isDragging ? 'none' : '0 4px 12px rgba(0,0,0,0.2)',
         touchAction: 'none',
+        flexShrink: 0,
       }}
-    >
-      {piece.emoji}
-    </div>
+    />
   );
 }
 
@@ -769,12 +681,14 @@ function DropSlot({
   onDrop,
   highlightWrong,
   pieces,
+  imageUrl,
 }: {
   slotIndex: number;
   placedPieceId: number | null;
   onDrop: (pieceId: number, slotIndex: number) => void;
   highlightWrong?: boolean;
   pieces: PieceData[];
+  imageUrl: string;
 }) {
   const [{ isOver }, drop] = useDrop({
     accept: PIECE_TYPE,
@@ -790,22 +704,22 @@ function DropSlot({
       ref={drop as any}
       className="rounded-xl flex items-center justify-center transition-all relative overflow-hidden"
       style={{
-        background: isOver ? 'rgba(255,255,255,0.3)' : piece ? piece.bg : 'rgba(255,255,255,0.08)',
+        background: isOver ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.08)',
         border: highlightWrong
           ? '2px solid #ff6b6b'
           : isOver
           ? '2px dashed rgba(255,255,255,0.85)'
           : '2px dashed rgba(255,255,255,0.28)',
-        aspectRatio: '1',
+        aspectRatio: '4 / 3',
       }}
     >
       {piece ? (
         <motion.div
-          className="w-full h-full flex items-center justify-center"
+          className="w-full h-full"
           initial={{ scale: 0.92 }}
           animate={{ scale: 1 }}
         >
-          <DraggablePiece piece={piece} inTray={false} />
+          <DraggablePiece piece={piece} inTray={false} imageUrl={imageUrl} />
         </motion.div>
       ) : (
         <span style={{ fontSize: '18px', opacity: 0.3 }}>{slotIndex + 1}</span>
@@ -916,7 +830,7 @@ function JigsawGame({ onComplete, zodiac, levelId }: { onComplete: () => void; z
 
     if (wrong.some(Boolean)) {
       setSlotWrong(wrong);
-      setCheckHint('還有些拼圖不在對的位置。可對照小參考圖「由左到右、由上而下」第幾格應是什麼圖示，再拖曳調整。');
+      setCheckHint('還有些拼圖不在對的位置。可對照左上方的參考圖，依「由左到右、由上而下」的順序排列，再拖曳調整。');
       return;
     }
     if (!completedRef.current) {
@@ -935,14 +849,8 @@ function JigsawGame({ onComplete, zodiac, levelId }: { onComplete: () => void; z
           <div className="text-white/80" style={{ fontWeight: 800, fontSize: 13 }}>
             🧩 主題：{theme.label}
           </div>
-          <div className="rounded-xl overflow-hidden border border-white/30 shadow-md flex-shrink-0" style={{ width: 110 }}>
-            <div className="grid grid-cols-3 gap-px p-px bg-white/20">
-              {pieces.map(p => (
-                <div key={p.id} className="flex items-center justify-center" style={{ background: p.bg, aspectRatio: '1', fontSize: '14px' }}>
-                  {p.emoji}
-                </div>
-              ))}
-            </div>
+          <div className="rounded-xl overflow-hidden border border-white/30 shadow-md flex-shrink-0" style={{ width: 120, aspectRatio: '4 / 3' }}>
+            <img src={theme.imageUrl} alt={theme.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
           </div>
           <div className="w-full max-w-md">
             <div className="text-white/80 text-center" style={{ fontWeight: 700, fontSize: '14px' }}>
@@ -961,7 +869,7 @@ function JigsawGame({ onComplete, zodiac, levelId }: { onComplete: () => void; z
 
         {/* Main puzzle grid */}
         <div className="flex items-center justify-center min-h-0 mb-2">
-          <div className="grid grid-cols-3 gap-2" style={{ width: 'min(248px, 52vw, 34vh)', aspectRatio: '1' }}>
+          <div className="grid grid-cols-3 gap-2" style={{ width: 'min(280px, 60vw, 44vh)', aspectRatio: '4 / 3' }}>
             {Array(9).fill(null).map((_, i) => (
               <DropSlot
                 key={i}
@@ -970,6 +878,7 @@ function JigsawGame({ onComplete, zodiac, levelId }: { onComplete: () => void; z
                 onDrop={handleDrop}
                 highlightWrong={slotWrong[i]}
                 pieces={pieces}
+                imageUrl={theme.imageUrl}
               />
             ))}
           </div>
@@ -1011,7 +920,7 @@ function JigsawGame({ onComplete, zodiac, levelId }: { onComplete: () => void; z
             {tray.map(id => {
               const piece = pieces.find(p => p.id === id);
               if (!piece) return null;
-              return <DraggablePiece key={id} piece={piece} inTray={true} />;
+              return <DraggablePiece key={id} piece={piece} inTray={true} imageUrl={theme.imageUrl} />;
             })}
             {tray.length === 0 && (
               <div className="text-white/30 py-2" style={{ fontWeight: 700, fontSize: '13px' }}>
